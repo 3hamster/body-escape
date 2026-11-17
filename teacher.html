@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>몸속 탈출 – 선생님 화면</title>
+<style>
+:root{--bg:#f6f3ee;--card:#fff;--ink:#231a17;--muted:#7a6c66;--line:#e3dbd3;--accent:#a8223a;--ok:#1d7a4c;--warn:#b26a00;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#16100f;--card:#211816;--ink:#f1e8e2;--muted:#a8978f;--line:#3a2c28;--accent:#ff8a9c;--ok:#6fd3a0;--warn:#f0b454;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0}
+#url{flex:3;min-width:220px}#pass{flex:1;min-width:120px}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){button.pri{color:#1a0d0f}}
+button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+button.sm{padding:3px 9px;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:24px;font-variant-numeric:tabular-nums}.kpi span{font-size:13px;color:var(--muted)}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:12.5px;color:var(--muted);font-weight:500}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12.5px;border:1px solid currentColor}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.muted{color:var(--muted)}
+#msg{min-height:1.4em;font-size:14px;margin:8px 0 0}
+.bar{display:inline-block;width:64px;height:8px;border-radius:99px;background:var(--line);vertical-align:middle;margin-right:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>몸속 탈출 – 선생님 화면</h1>
+  <p class="sub">학생들의 진행 상황이 10초마다 새로 표시됩니다.</p>
+
+  <div class="card">
+    <div class="row">
+      <input id="url" type="url" placeholder="구글 시트 웹 앱 주소 (…/exec)" autocomplete="off">
+      <input id="pass" type="password" placeholder="선생님 비밀번호" autocomplete="off">
+      <button class="pri" id="go" type="button">연결</button>
+    </div>
+    <p id="msg" class="muted"></p>
+  </div>
+
+  <div id="live" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="row" style="margin:14px 0 8px">
+      <button id="tabA" class="on" type="button">진행 현황</button>
+      <button id="tabB" type="button">명예의 전당</button>
+      <span style="flex:1"></span>
+      <button id="resetAll" type="button">새 수업 시작 (진행 기록 비우기)</button>
+      <button id="clearHall" type="button">명예의 전당 비우기</button>
+    </div>
+    <div class="card wrap" id="viewA"><table><thead><tr>
+      <th>학생</th><th>현재 방</th><th>경과 시간</th><th>힌트</th><th>오답</th><th>화면 이탈</th><th>재접속</th><th>다른 기기 시도</th><th>상태</th><th></th>
+    </tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="card wrap" id="viewB" hidden><table><thead><tr>
+      <th>순위</th><th>학생</th><th>총 소요 시간</th><th>플레이 시간</th><th>힌트</th>
+    </tr></thead><tbody id="hall"></tbody></table></div>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const ROOMS = ['', '1 소화', '2 순환', '3 배설', '4 호흡'];
+const fmt = t => { t = Math.max(0, Math.round(t)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+let url = '', pass = '', timer = null, busy = false;
+try { $('#url').value = localStorage.getItem('be_teacher_url') || 'https://script.google.com/macros/s/AKfycbzBo5YGuh_8NfPZmz1VJ_Rs9qRFZzqxGMdMmb0cTnVWUvf3vsifeqC_FGRTBzJdhE8/exec'; } catch (e) {}
+
+function say(t, cls) { const m = $('#msg'); m.textContent = t; m.className = cls || 'muted'; }
+async function call(o) {
+  const r = await fetch(url, { method:'POST', body:JSON.stringify(Object.assign({ pass }, o)) });
+  return r.json();
+}
+function cell(tr, text, cls) { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
+function render(d) {
+  const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now;
+  const done = P.filter(p => p.clear).length, lost = P.filter(p => !p.clear && now - p.last > 120000).length;
+  const K = [[P.length, '참여'], [done, '탈출 완료'], [P.length - done, '진행 중'], [lost, '응답 없음'], [P.reduce((s, p) => s + p.away, 0), '화면 이탈 합계']];
+  $('#kpis').replaceChildren(...K.map(([v, n]) => { const e = document.createElement('div'); e.className = 'kpi'; const b = document.createElement('b'); b.textContent = v; const s = document.createElement('span'); s.textContent = n; e.append(b, s); return e; }));
+  const tb = $('#rows'); tb.replaceChildren();
+  if (!P.length) { const tr = document.createElement('tr'); const td = cell(tr, '아직 들어온 학생이 없습니다.', 'muted'); td.colSpan = 10; tb.appendChild(tr); }
+  P.forEach(p => {
+    const tr = document.createElement('tr');
+    cell(tr, p.cls + '반 ' + p.num + '번 ' + p.name);
+    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = (p.clear ? 100 : (p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, p.clear ? '탈출' : ROOMS[p.room] || p.room);
+    cell(tr, p.clear ? fmt(p.play) : fmt((now - p.start) / 1000));
+    cell(tr, String(p.hints));
+    cell(tr, String(p.miss));
+    cell(tr, p.away ? p.away + '회 · ' + fmt(p.awayMs / 1000) : '0', p.away ? 'warn' : '');
+    cell(tr, String(p.rejoin), p.rejoin ? 'warn' : '');
+    cell(tr, p.reject ? p.reject + '회' : '0', p.reject ? 'bad' : '');
+    const st = cell(tr, ''); const tag = document.createElement('span');
+    if (p.clear) { tag.className = 'tag ok'; tag.textContent = '탈출 ' + fmt(p.total); }
+    else if (now - p.last > 120000) { tag.className = 'tag bad'; tag.textContent = '응답 없음 ' + fmt((now - p.last) / 1000); }
+    else { tag.className = 'tag muted'; tag.textContent = '진행 중'; }
+    st.appendChild(tag);
+    if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.style.marginLeft = '4px'; a.textContent = '관리자 모드 사용'; st.appendChild(a); }
+    const act = cell(tr, ''); const b = document.createElement('button'); b.className = 'sm'; b.type = 'button'; b.textContent = '초기화';
+    b.onclick = async () => { if (!confirm(p.cls + '반 ' + p.num + '번 ' + p.name + ' 학생의 진행 기록을 지우고 번호를 풀까요?\n(다른 기기에서 다시 들어올 수 있게 됩니다. 명예의 전당 기록은 그대로 남습니다.)')) return; await act_({ a:'reset', key:p.key }); };
+    act.appendChild(b); tb.appendChild(tr);
+  });
+  const hb = $('#hall'); hb.replaceChildren();
+  if (!d.hall.length) { const tr = document.createElement('tr'); const td = cell(tr, '아직 탈출한 학생이 없습니다.', 'muted'); td.colSpan = 5; hb.appendChild(tr); }
+  d.hall.forEach((h, i) => { const tr = document.createElement('tr'); cell(tr, String(i + 1)); cell(tr, h.cls + '반 ' + h.num + '번 ' + h.name); cell(tr, fmt(h.total)); cell(tr, fmt(h.play)); cell(tr, String(h.hints)); hb.appendChild(tr); });
+}
+async function act_(o) {
+  if (busy) return; busy = true;
+  try {
+    const d = await call(o);
+    if (!d.ok) { say(d.err === 'pass' ? '비밀번호가 맞지 않습니다. (스크립트의 TEACHER_PASS를 바꿨는지도 확인해 주세요.)' : '요청을 처리하지 못했습니다.', 'bad'); stop(); }
+    else { render(d); $('#live').hidden = false; say('마지막으로 받아 온 시각 ' + new Date().toLocaleTimeString('ko-KR'), 'muted'); }
+  } catch (e) { say('서버에 연결하지 못했습니다. 주소와 인터넷 연결을 확인해 주세요. 10초 뒤 다시 시도합니다.', 'bad'); }
+  busy = false;
+}
+function stop() { if (timer) clearInterval(timer); timer = null; }
+$('#go').onclick = () => {
+  url = $('#url').value.trim(); pass = $('#pass').value;
+  if (!/^https:\/\/|^http:\/\/localhost/.test(url)) { say('웹 앱 주소를 붙여 넣어 주세요.', 'bad'); return; }
+  try { localStorage.setItem('be_teacher_url', url); } catch (e) {}
+  stop(); say('연결하는 중…'); act_({ a:'dash' }); timer = setInterval(() => act_({ a:'dash' }), 10000);
+};
+$('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
+$('#tabA').onclick = () => { $('#viewA').hidden = false; $('#viewB').hidden = true; $('#tabA').className = 'on'; $('#tabB').className = ''; };
+$('#tabB').onclick = () => { $('#viewA').hidden = true; $('#viewB').hidden = false; $('#tabB').className = 'on'; $('#tabA').className = ''; };
+$('#resetAll').onclick = () => { if (confirm('모든 학생의 진행 기록을 지우고 새 수업을 시작할까요?\n(명예의 전당 기록은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
+$('#clearHall').onclick = () => { if (confirm('명예의 전당 기록을 모두 지울까요? 되돌릴 수 없습니다.')) act_({ a:'clearHall' }); };
+</script>
+</body>
+</html>
