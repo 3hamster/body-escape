@@ -103,7 +103,34 @@ async function call(o) {
 function cell(tr, text, cls) { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
 const LOST = 30000; /* 접속 유지 신호가 30초 넘게 끊기면 접속 끊김 */
 let rosterShown = false, tick = null;
+/* ===== 진행도 순위 + 탈출 성공 폭죽 ===== */
+const GK_ORDER = ['시약보관함 방향자물쇠','시약보관함 침용액','가래떡 (녹이기 전)','가래떡 (녹이기 후)','출구 비밀번호','벽에 붙은 숫자 종이','적혈구 사용','노트의 힌트(신조어)','탈출구 방향열쇠','세그먼트','움직이는 책장 (요소 빼내기)','전자현미경 및 요소와 포도당 회수','세뇨관 워터슬라이드','요소배출장치','안쪽 문의 자물쇠','고무풍선 줍기','왼쪽문','오른쪽 문'];
+const progOf = p => { let m = -1; String(p.gk || '').split(' / ').forEach(n => { m = Math.max(m, GK_ORDER.indexOf(n.trim())); }); return p.room * 100 + m; };
+const rankCmp = (a, b) => progOf(b) - progOf(a) || a.hints - b.hints || a.miss - b.miss || a.cls - b.cls || a.num - b.num;
+let seenClear = null;
+function checkWin(players) {
+  const now = new Set(players.filter(p => p.clear).map(p => p.key));
+  if (seenClear) { const fresh = players.filter(p => p.clear && !seenClear.has(p.key)); if (fresh.length) fireworks(fresh.map(p => p.cls + '반 ' + p.num + '번 ' + p.name).join(', ') + ' 탈출 성공!'); }
+  seenClear = now;
+}
+function fireworks(text) {
+  const cv = document.createElement('canvas'); cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:9999;pointer-events:none';
+  const ban = document.createElement('div'); ban.textContent = text; ban.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:10000;pointer-events:none;font-size:34px;font-weight:700;color:#fff;background:rgba(163,32,47,.92);padding:14px 28px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.35)';
+  document.body.append(cv, ban);
+  const W = cv.width = innerWidth, H = cv.height = innerHeight, g = cv.getContext('2d'), ps = [], cols = ['#ff4d6d','#ffd23f','#3bceac','#4dabf7','#b388ff','#ff9f1c'];
+  const burst = () => { const x = W * (.15 + Math.random() * .7), y = H * (.12 + Math.random() * .45), c = cols[Math.random() * cols.length | 0]; for (let i = 0; i < 70; i++) { const a = Math.random() * 6.283, s = 2 + Math.random() * 6; ps.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, c }); } };
+  const t0 = performance.now(); let last = 0;
+  (function loop(t) {
+    const el = t - t0; if (el - last > 450 && el < 5000) { burst(); last = el; }
+    g.clearRect(0, 0, W, H);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .08; p.vx *= .985; p.life -= .014; g.globalAlpha = Math.max(0, p.life); g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, 2.6, 0, 6.283); g.fill(); });
+    for (let i = ps.length - 1; i >= 0; i--) if (ps[i].life <= 0) ps.splice(i, 1);
+    if (el < 6500 || ps.length) requestAnimationFrame(loop); else { cv.remove(); }
+    if (el > 5500) ban.remove();
+  })(t0);
+}
 function render(d) {
+  checkWin(d.players);
   const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now, st0 = d.startAt, started = st0 > 0 && now >= st0;
   const lostOf = p => !p.clear && now - p.last > LOST;
   const done = P.filter(p => p.clear).length, lost = P.filter(lostOf).length, on = P.filter(p => !lostOf(p)).length;
@@ -133,7 +160,7 @@ function render(d) {
   const who = p => p.cls + '반 ' + p.num + '번 ' + p.name;
   const empty = (tb, n, text) => { const tr = document.createElement('tr'); const td = cell(tr, text, 'muted'); td.colSpan = n; tb.appendChild(tr); };
   /* 1) 대기 중: 시작 전에 들어온 학생 */
-  const waiting = started ? [] : P, playing = started ? P.filter(p => !p.clear) : [], cleared = P.filter(p => p.clear);
+  const waiting = started ? [] : P, playing = started ? P.filter(p => !p.clear).sort(rankCmp) : [], cleared = P.filter(p => p.clear);
   $('#nWait').textContent = waiting.length ? waiting.length + '명' : ''; $('#nPlay').textContent = playing.length ? playing.length + '명' : ''; $('#nDone').textContent = cleared.length ? cleared.length + '명' : '';
   const wl = $('#waitList'); wl.replaceChildren();
   if (!waiting.length) { const m = document.createElement('span'); m.className = 'muted'; m.textContent = started ? '모두 시작했습니다.' : '아직 들어온 학생이 없습니다.'; wl.appendChild(m); }
@@ -141,9 +168,9 @@ function render(d) {
   /* 2) 플레이 중 */
   const tb = $('#rows'); tb.replaceChildren();
   if (!playing.length) empty(tb, 10, started ? '플레이 중인 학생이 없습니다.' : '시작 전입니다. 일괄 시작을 누르면 이 목록에 나타납니다.');
-  playing.forEach(p => {
+  playing.forEach((p, ix) => {
     const tr = document.createElement('tr');
-    cell(tr, who(p));
+    cell(tr, (ix + 1) + '위 ' + who(p), ix === 0 && playing.length > 1 ? 'ok' : '');
     const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, '현재방: ' + (ROOMS[p.room] || p.room), document.createElement('br'), '진행기믹: ' + (p.gk || '-'));
     cell(tr, fmt((now - st0) / 1000));
     cell(tr, String(p.hints));
