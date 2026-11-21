@@ -143,7 +143,7 @@ function render(d) {
   playing.forEach(p => {
     const tr = document.createElement('tr');
     cell(tr, who(p));
-    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
+    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, '현재방: ' + (ROOMS[p.room] || p.room), document.createElement('br'), '진행기믹: ' + (p.gk || '-'));
     cell(tr, fmt((now - st0) / 1000));
     cell(tr, String(p.hints));
     cell(tr, String(p.miss));
