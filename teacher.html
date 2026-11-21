@@ -77,7 +77,7 @@ h2{font-size:17px;margin:0 0 10px}
     <div id="viewA">
       <div class="card"><h2>대기 중 <span id="nWait" class="muted"></span></h2><div id="waitList" class="chips"></div></div>
       <div class="card wrap"><h2>플레이 중 <span id="nPlay" class="muted"></span></h2><table><thead><tr>
-        <th>학생</th><th>현재 방</th><th>경과 시간 (시작 시각 기준)</th><th>힌트</th><th>오답</th><th>화면 이탈</th><th>재접속</th><th>다른 기기 시도</th><th>상태</th><th></th>
+        <th>학생</th><th>현재 방</th><th>경과 시간</th><th></th>
       </tr></thead><tbody id="rows"></tbody></table></div>
       <div class="card wrap"><h2>탈출 완료 <span id="nDone" class="muted"></span></h2><table><thead><tr>
         <th>학생</th><th>총 소요 시간</th><th>플레이 시간</th><th>힌트</th><th>오답</th><th>화면 이탈</th><th></th>
@@ -132,10 +132,10 @@ function fireworks(text) {
 /* ===== 재접속·화면 이탈·다른 기기 시도 상세 펼치기 ===== */
 let lastD = null; const openDetail = new Set();
 const tm = t => new Date(t).toLocaleTimeString('ko-KR');
-function detailRow(p, cols) {
+function detailRow(p, cols, head) {
   const ev = String(p.log || '').split('|').filter(Boolean).map(s => s.split(',')), tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = cols; td.style.cssText = 'white-space:normal;background:rgba(0,0,0,.035);font-size:13.5px';
   const grp = (title, key, line, total, cls) => { const L = ev.filter(e => e[0] === key), b = document.createElement('div'); b.style.margin = '2px 0 6px'; const h = document.createElement('b'); h.textContent = title + ' ' + total + '회'; if (total && cls) h.className = cls; b.appendChild(h); if (!total) { b.append(' · 기록 없음'); } else if (!L.length) { b.append(' · 시각 기록 없음(상세 기록은 이번 업데이트 이후부터 쌓여요)'); } else { L.forEach(e => { const d = document.createElement('div'); d.textContent = '· ' + line(e); b.appendChild(d); }); if (L.length < total) { const d = document.createElement('div'); d.className = 'muted'; d.textContent = '· 이전 ' + (total - L.length) + '회는 시각 기록이 없어요.'; b.appendChild(d); } } return b; };
-  td.append(
+  td.append(head || '',
     grp('화면 이탈', 'a', e => tm(+e[1]) + ' 복귀 (화면 밖 ' + fmt((+e[2] || 0) / 1000) + ')', p.away, 'warn'),
     grp('재접속', 'r', e => tm(+e[1]) + ' 다시 접속', p.rejoin, 'warn'),
     grp('다른 기기 시도', 'x', e => tm(+e[1]) + ' 다른 기기에서 입장 시도', p.reject, 'bad'));
@@ -177,27 +177,28 @@ function render(d) {
   const wl = $('#waitList'); wl.replaceChildren();
   if (!waiting.length) { const m = document.createElement('span'); m.className = 'muted'; m.textContent = started ? '모두 시작했습니다.' : '아직 들어온 학생이 없습니다.'; wl.appendChild(m); }
   waiting.forEach(p => { const c = document.createElement('span'); c.className = 'chip' + (lostOf(p) ? ' lost' : ''); c.title = lostOf(p) ? '접속 끊김' : '대기 중'; c.append((lostOf(p) ? '⚠ ' : '') + p.cls + '-' + p.num + ' ' + p.name); const x = resetBtn(p, '×'); x.title = '이 학생 내보내기(번호 풀기)'; c.appendChild(x); wl.appendChild(c); });
-  /* 2) 플레이 중 */
+  /* 2) 플레이 중: 기본은 순위·이름·현재 방·경과 시간만, 세부확인을 누르면 상세 */
   const tb = $('#rows'); tb.replaceChildren();
-  if (!playing.length) empty(tb, 10, started ? '플레이 중인 학생이 없습니다.' : '시작 전입니다. 일괄 시작을 누르면 이 목록에 나타납니다.');
+  if (!playing.length) empty(tb, 4, started ? '플레이 중인 학생이 없습니다.' : '시작 전입니다. 일괄 시작을 누르면 이 목록에 나타납니다.');
   playing.forEach((p, ix) => {
     const tr = document.createElement('tr');
     cell(tr, (ix + 1) + '위 ' + who(p), ix === 0 && playing.length > 1 ? 'ok' : '');
-    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, '현재방: ' + (ROOMS[p.room] || p.room), document.createElement('br'), '진행기믹: ' + (p.gk || '-'));
+    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
     cell(tr, fmt((now - st0) / 1000));
-    cell(tr, String(p.hints));
-    cell(tr, String(p.miss));
-    cell(tr, p.away ? p.away + '회 · ' + fmt(p.awayMs / 1000) : '0', p.away ? 'warn' : '');
-    cell(tr, String(p.rejoin), p.rejoin ? 'warn' : '');
-    cell(tr, p.reject ? p.reject + '회' : '0', p.reject ? 'bad' : '');
-    const st = cell(tr, ''); const tag = document.createElement('span');
-    if (lostOf(p)) { tag.className = 'tag bad'; tag.textContent = '접속 끊김 ' + fmt((now - p.last) / 1000); } else { tag.className = 'tag muted'; tag.textContent = '진행 중'; }
-    st.appendChild(tag);
-    if (p.late) { const a = document.createElement('span'); a.className = 'tag warn'; a.style.marginLeft = '4px'; a.textContent = '늦은 입장'; st.appendChild(a); }
-    if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.style.marginLeft = '4px'; a.textContent = '관리자 모드 사용'; st.appendChild(a); }
-    { const tdb = cell(tr, ''); tdb.append(editBtn(p), resetBtn(p)); }
-    [5, 6, 7].forEach(i => { const c = tr.children[i]; c.style.cursor = 'pointer'; c.style.textDecoration = 'underline dotted'; c.title = '눌러서 상세 기록 보기'; c.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; });
-    tb.appendChild(tr); if (openDetail.has(p.key)) tb.appendChild(detailRow(p, 10));
+    const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
+    db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; tdb.appendChild(db);
+    tb.appendChild(tr);
+    if (isOpen) {
+      const head = document.createElement('div'); head.style.cssText = 'margin:2px 0 8px;line-height:1.9';
+      const ln = t => { const d = document.createElement('div'); d.textContent = t; head.appendChild(d); };
+      ln('진행 기믹: ' + (p.gk || '-')); ln('힌트 ' + p.hints + '개 사용 · 오답 ' + p.miss + '회');
+      const stl = document.createElement('div'), tag = (t, c) => { const a = document.createElement('span'); a.className = 'tag ' + c; a.style.marginRight = '4px'; a.textContent = t; stl.appendChild(a); };
+      if (lostOf(p)) tag('접속 끊김 ' + fmt((now - p.last) / 1000), 'bad'); else tag('진행 중', 'muted');
+      if (p.late) tag('늦은 입장', 'warn'); if (p.adm) tag('관리자 모드 사용', 'warn');
+      head.appendChild(stl);
+      const bt = document.createElement('div'); bt.style.marginTop = '4px'; bt.append(editBtn(p), resetBtn(p)); head.appendChild(bt);
+      tb.appendChild(detailRow(p, 4, head));
+    }
   });
   /* 3) 탈출 완료 */
   const dr = $('#doneRows'); dr.replaceChildren();
