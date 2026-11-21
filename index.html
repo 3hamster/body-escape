@@ -2868,7 +2868,8 @@ function startScreen() {
     try {
       const me = { cls, num, name, tok:netTok() }, r = await netPost({ a:'join', ...me });
       if (!r.ok) { joining = false; say(r.err === 'taken' ? '이 번호는 다른 기기에서 이미 사용 중이에요. 선생님께 말씀드리세요.' : '입장하지 못했어요. 반과 번호를 확인해 주세요.', true); return; }
-      try { localStorage.setItem('be_me', JSON.stringify({ cls, num, name })); } catch (e) {}
+      if (r.cls && (r.cls !== me.cls || r.num !== me.num)) { toast('이 기기는 처음 입장한 ' + r.cls + '반 ' + r.num + '번 ' + r.name + ' 기록으로 이어져요.'); } if (r.cls) { me.cls = r.cls; me.num = r.num; me.name = r.name || me.name; } /* 같은 기기는 번호·이름을 바꿔도 처음 기록을 이어 쓴다 */
+      try { localStorage.setItem('be_me', JSON.stringify({ cls:me.cls, num:me.num, name:me.name })); } catch (e) {}
       NET.me = me; NET.live = !r.cleared; S.hintN = r.hints; S.mistakes = r.miss; NET.sentH = r.hints; NET.sentM = r.miss; NET.sentR = r.room; NET.lastSend = Date.now(); NET.startAt = r.startAt || 0;
       const begin = () => { /* 경과 시간은 선생님이 누른 시작 시각부터 잰다 */
         NET.phase = 'play'; NET.onStart = NET.onGone = null; go(r.room); S.t0 = Math.min(Date.now(), netLocal(NET.startAt));
