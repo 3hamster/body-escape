@@ -143,9 +143,7 @@ function detailRow(p, cols, head) {
 }
 function render(d) {
   checkWin(d.players); lastD = d;
-  { /* 활동 중 자유 재입장 on/off */ let lb = $('#lockBtn'); if (!lb) { lb = document.createElement('button'); lb.id = 'lockBtn'; lb.type = 'button'; $('#start').after(lb); lb.onclick = () => { lb.disabled = true; act_({ a:'lock', on: lb.dataset.locked === '1' ? 0 : 1 }); }; }
-    lb.disabled = false; lb.hidden = !d.startAt; lb.dataset.locked = d.locked ? '1' : '0';
-    lb.textContent = d.locked ? '활동 비활성화됨 · 눌러서 다시 허용' : '재입장 자유 허용 중 · 눌러서 활동 비활성화'; lb.style.cssText = 'margin-left:8px;' + (d.locked ? 'background:#7a1f2b;color:#fff;border-color:#7a1f2b' : 'background:#e3f4e8;color:#1d6b3a;border-color:#9ccfae'); }
+  
   const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now, st0 = d.startAt, started = st0 > 0 && now >= st0;
   const lostOf = p => !p.clear && now - p.last > LOST;
   const done = P.filter(p => p.clear).length, lost = P.filter(lostOf).length, on = P.filter(p => !lostOf(p)).length;
@@ -171,6 +169,7 @@ function render(d) {
   const K = [[P.length, '입장'], [on, '접속 중'], [lost, '접속 끊김'], [done, '탈출 완료'], [P.filter(p => p.late).length, '늦은 입장'], [P.reduce((s, p) => s + p.away, 0), '화면 이탈 합계']];
   $('#kpis').replaceChildren(...K.map(([v, n]) => { const e = document.createElement('div'); e.className = 'kpi'; const b = document.createElement('b'); b.textContent = v; const s = document.createElement('span'); s.textContent = n; e.append(b, s); return e; }));
   const resetBtn = (p, label) => { const b = document.createElement('button'); b.className = 'sm'; b.type = 'button'; b.textContent = label || '초기화'; b.onclick = async () => { if (!confirm(p.cls + '반 ' + p.num + '번 ' + p.name + ' 학생의 진행 기록을 지우고 번호를 풀까요?\n(다른 기기에서 다시 들어올 수 있게 됩니다. 명예의 전당 기록은 그대로 남습니다.)')) return; await act_({ a:'reset', key:p.key }); }; return b; };
+  const allowBtn = p => { const b = document.createElement('button'); b.className = 'sm'; b.type = 'button'; b.textContent = p.allow ? '새 기기 허가됨 (취소)' : '새 기기 허가'; if (p.allow) b.style.cssText = 'background:#e3f4e8;color:#1d6b3a;border-color:#9ccfae'; else if (p.req) b.style.cssText = 'background:#a3202f;color:#fff;border-color:#a3202f'; b.onclick = async () => { if (!p.allow && !confirm(p.cls + '반 ' + p.num + '번 ' + p.name + ' 학생이 새 기기에서 이어받는 것을 허가할까요?\n(허가하면 한 번만 가능하고, 지금 쓰던 기기는 더 이상 기록되지 않아요.)')) return; await act_({ a:'allow', key:p.key, on:p.allow ? 0 : 1 }); }; return b; };
   const editBtn = p => { const b = document.createElement('button'); b.className = 'sm'; b.type = 'button'; b.textContent = '수정'; b.style.marginRight = '4px'; b.onclick = async () => { const s = prompt('반 번호 이름을 띄어쓰기로 적어 주세요. (예: 3 12 김철수)\n진행 기록은 그대로 유지됩니다.', p.cls + ' ' + p.num + ' ' + p.name); if (s == null) return; const m = s.trim().match(/^(\d+)\s+(\d+)\s*(.*)$/); if (!m) { alert('형식이 맞지 않아요. 예: 3 12 김철수'); return; } const r = await call({ a:'edit', key:p.key, cls:+m[1], num:+m[2], name:m[3] }); if (r.ok) { render(r); } else alert(r.err === 'dup' ? '그 반·번호는 이미 다른 학생이 쓰고 있어요.' : '수정하지 못했어요.'); }; return b; };
   const who = p => p.cls + '반 ' + p.num + '번 ' + p.name;
   const empty = (tb, n, text) => { const tr = document.createElement('tr'); const td = cell(tr, text, 'muted'); td.colSpan = n; tb.appendChild(tr); };
@@ -195,7 +194,8 @@ function render(d) {
     { const g = document.createElement('span'); g.textContent = p.gk || '-'; g.title = '마우스를 올리면 보여요'; g.style.cssText = 'margin-left:10px;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;filter:blur(6px);transition:filter .15s;cursor:default;user-select:none'; const show = on => { g.style.filter = on ? 'none' : 'blur(6px)'; }; g.onmouseenter = () => show(true); g.onmouseleave = () => show(false); g.onclick = () => show(g.style.filter !== 'none'); rc.appendChild(g); } /* 진행 기믹: 평소엔 흐리게, 마우스를 올리면 보인다 */
     cell(tr, fmt((now - st0) / 1000));
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
-    db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; tdb.appendChild(db);
+    db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; if (p.allow) { const t = document.createElement('span'); t.className = 'tag ok'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가됨'; tdb.appendChild(t); } else if (p.req) { const t = document.createElement('span'); t.className = 'tag bad'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가 요청'; tdb.appendChild(t); }
+    tdb.appendChild(db);
     tb.appendChild(tr);
     if (isOpen) {
       const head = document.createElement('div'); head.style.cssText = 'margin:2px 0 8px;line-height:1.9';
@@ -205,7 +205,7 @@ function render(d) {
       if (lostOf(p)) tag('접속 끊김 ' + fmt((now - p.last) / 1000), 'bad'); else tag('진행 중', 'muted');
       if (p.late) tag('늦은 입장', 'warn'); if (p.adm) tag('관리자 모드 사용', 'warn');
       head.appendChild(stl);
-      const bt = document.createElement('div'); bt.style.marginTop = '4px'; bt.append(editBtn(p), resetBtn(p)); head.appendChild(bt);
+      const bt = document.createElement('div'); bt.style.marginTop = '4px'; bt.append(allowBtn(p), editBtn(p), resetBtn(p)); head.appendChild(bt);
       tb.appendChild(detailRow(p, 4, head));
     }
   });
