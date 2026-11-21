@@ -182,7 +182,12 @@ function render(d) {
   if (!playing.length) empty(tb, 4, started ? '플레이 중인 학생이 없습니다.' : '시작 전입니다. 일괄 시작을 누르면 이 목록에 나타납니다.');
   playing.forEach((p, ix) => {
     const tr = document.createElement('tr');
-    cell(tr, (ix + 1) + '위 ' + who(p), ix === 0 && playing.length > 1 ? 'ok' : '');
+    { const MC = ['#f2b200', '#8e9aa8', '#c4773a'], MB = ['rgba(242,178,0,.18)', 'rgba(142,154,168,.20)', 'rgba(196,119,58,.17)'], top = ix < 3 && playing.length > 1;
+      const td = document.createElement('td'); td.style.cssText = 'white-space:nowrap;' + (top ? 'border-left:5px solid ' + MC[ix] + ';' : '');
+      const rk = document.createElement('span'); rk.textContent = ix + 1; rk.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:' + (ix === 0 && top ? 34 : 28) + 'px;height:' + (ix === 0 && top ? 34 : 28) + 'px;border-radius:50%;margin-right:10px;font-weight:700;font-size:' + (ix === 0 && top ? 18 : 15) + 'px;vertical-align:middle;' + (top ? 'background:' + MC[ix] + ';color:#fff;' : 'background:#e6dfd6;color:#6b5f55;');
+      const nm = document.createElement('b'); nm.textContent = p.name; nm.style.cssText = 'font-size:' + (ix === 0 && top ? 19 : 16.5) + 'px;margin-right:8px;vertical-align:middle';
+      const no = document.createElement('span'); no.textContent = p.cls + '반 ' + p.num + '번'; no.style.cssText = 'display:inline-block;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;vertical-align:middle';
+      td.append(rk, nm, no); tr.appendChild(td); if (top) tr.style.background = MB[ix]; }
     const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
     cell(tr, fmt((now - st0) / 1000));
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
