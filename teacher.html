@@ -129,8 +129,20 @@ function fireworks(text) {
     if (el > 5500) ban.remove();
   })(t0);
 }
+/* ===== 재접속·화면 이탈·다른 기기 시도 상세 펼치기 ===== */
+let lastD = null; const openDetail = new Set();
+const tm = t => new Date(t).toLocaleTimeString('ko-KR');
+function detailRow(p, cols) {
+  const ev = String(p.log || '').split('|').filter(Boolean).map(s => s.split(',')), tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = cols; td.style.cssText = 'white-space:normal;background:rgba(0,0,0,.035);font-size:13.5px';
+  const grp = (title, key, line, total, cls) => { const L = ev.filter(e => e[0] === key), b = document.createElement('div'); b.style.margin = '2px 0 6px'; const h = document.createElement('b'); h.textContent = title + ' ' + total + '회'; if (total && cls) h.className = cls; b.appendChild(h); if (!total) { b.append(' · 기록 없음'); } else if (!L.length) { b.append(' · 시각 기록 없음(상세 기록은 이번 업데이트 이후부터 쌓여요)'); } else { L.forEach(e => { const d = document.createElement('div'); d.textContent = '· ' + line(e); b.appendChild(d); }); if (L.length < total) { const d = document.createElement('div'); d.className = 'muted'; d.textContent = '· 이전 ' + (total - L.length) + '회는 시각 기록이 없어요.'; b.appendChild(d); } } return b; };
+  td.append(
+    grp('화면 이탈', 'a', e => tm(+e[1]) + ' 복귀 (화면 밖 ' + fmt((+e[2] || 0) / 1000) + ')', p.away, 'warn'),
+    grp('재접속', 'r', e => tm(+e[1]) + ' 다시 접속', p.rejoin, 'warn'),
+    grp('다른 기기 시도', 'x', e => tm(+e[1]) + ' 다른 기기에서 입장 시도', p.reject, 'bad'));
+  tr.appendChild(td); return tr;
+}
 function render(d) {
-  checkWin(d.players);
+  checkWin(d.players); lastD = d;
   const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now, st0 = d.startAt, started = st0 > 0 && now >= st0;
   const lostOf = p => !p.clear && now - p.last > LOST;
   const done = P.filter(p => p.clear).length, lost = P.filter(lostOf).length, on = P.filter(p => !lostOf(p)).length;
@@ -183,7 +195,9 @@ function render(d) {
     st.appendChild(tag);
     if (p.late) { const a = document.createElement('span'); a.className = 'tag warn'; a.style.marginLeft = '4px'; a.textContent = '늦은 입장'; st.appendChild(a); }
     if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.style.marginLeft = '4px'; a.textContent = '관리자 모드 사용'; st.appendChild(a); }
-    { const tdb = cell(tr, ''); tdb.append(editBtn(p), resetBtn(p)); } tb.appendChild(tr);
+    { const tdb = cell(tr, ''); tdb.append(editBtn(p), resetBtn(p)); }
+    [5, 6, 7].forEach(i => { const c = tr.children[i]; c.style.cursor = 'pointer'; c.style.textDecoration = 'underline dotted'; c.title = '눌러서 상세 기록 보기'; c.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; });
+    tb.appendChild(tr); if (openDetail.has(p.key)) tb.appendChild(detailRow(p, 10));
   });
   /* 3) 탈출 완료 */
   const dr = $('#doneRows'); dr.replaceChildren();
