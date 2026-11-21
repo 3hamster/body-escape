@@ -1319,7 +1319,7 @@ function startRide(kind) {
 function rideStep(dt) {
   const r = S.ride; r.t += dt; const RC = SLIDE_C, A = 3 * Math.PI * 2, f = r.from;
   if (r.kind === 'down') {
-    const tA = .8, tH = 4.6, tD = 1.0, hp = (kh) => { const a = kh * A; return [RC.x + .26 * Math.cos(a), LEVEL_Y[3] + .9 - kh * 16.9, RC.z + .26 * Math.sin(a)]; };
+    const tA = .8, tH = calm ? 6.5 : 4.6, tD = 1.0, hp = (kh) => { const a = kh * A; return [RC.x + (calm ? 0 : .26) * Math.cos(a), LEVEL_Y[3] + .9 - kh * 16.9, RC.z + (calm ? 0 : .26) * Math.sin(a)]; };
     const orient = (kh) => [lerpAng(f.yaw, 0, smooth(kh)), -.65]; /* 시점은 거의 고정, 도착 방향으로 천천히만 돈다 (예전에는 3바퀴 회전) */
     let x, y, z, yaw, pitch;
     if (r.t < tA) { const u = smooth(r.t / tA), s = hp(0), o = orient(0); x = f.x + (s[0] - f.x) * u; y = f.y + (s[1] - f.y) * u; z = f.z + (s[2] - f.z) * u; yaw = lerpAng(f.yaw, o[0], u); pitch = f.pitch + (o[1] - f.pitch) * u; }
@@ -2909,16 +2909,18 @@ async function netPost(o) { /* 응답의 서버 시각으로 이 기기 시계�
   return r;
 }
 const netLocal = (serverT) => serverT - NET.off; /* 서버 시각 → 이 기기 시각 */
+function curGk() { try { const L = GIMMICKS.filter(x => x.r === S.room && x.when() && !x.done()).map(x => x.name); return L.length ? L.join(' / ') : '탐색 중'; } catch (e) { return '탐색 중'; } }
 async function netFlush() {
   if (!NET.live || NET.busy) return;
   const play = NET.phase === 'play';
   const d = { a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:play ? S.room : 1, hint:play ? Math.max(0, S.hintN - NET.sentH) : 0, miss:play ? Math.max(0, S.mistakes - NET.sentM) : 0, away:play ? NET.away : 0, awayMs:play ? NET.awayMs : 0 };
+  const gkNow = play ? curGk() : ''; if (play && gkNow !== NET.sentG) d.gk = gkNow; /* 현재 진행 중인 기믹을 선생님 화면에 알린다 */
   if (admin) d.adm = 1; if (NET.wantClear) d.clear = 1;
   NET.busy = true; NET.lastSend = Date.now();
   try {
     const r = await netPost(d);
     if (r.ok) {
-      NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; NET.away -= d.away; NET.awayMs -= d.awayMs;
+      NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; if (d.gk != null) NET.sentG = d.gk; NET.away -= d.away; NET.awayMs -= d.awayMs;
       if (d.clear && r.cleared) { NET.wantClear = false; NET.res = r; netShowResult(); }
       if (NET.phase === 'wait' && r.startAt && NET.onStart) { NET.startAt = r.startAt; NET.onStart(); }
     } else if (r.err === 'taken' || r.err === 'gone') { NET.live = false; if (NET.onGone) NET.onGone(); else toast('선생님이 기록을 초기화했어요. 새로 고친 뒤 다시 입장해 주세요.'); }
@@ -2927,7 +2929,7 @@ async function netFlush() {
 }
 setInterval(() => { /* 바뀐 것이 있으면 곧바로, 없어도 10초마다 접속 유지 신호를 보낸다 */
   if (!NET.live) return;
-  const dirty = NET.phase === 'play' && (S.room !== NET.sentR || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
+  const dirty = NET.phase === 'play' && (S.room !== NET.sentR || curGk() !== NET.sentG || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
   if (dirty || Date.now() - NET.lastSend >= NET_BEAT) netFlush();
 }, 1000);
 document.addEventListener('visibilitychange', () => { /* 5초 넘게 화면을 벗어나면 이탈 1회 (게임이 시작된 뒤에만) */
