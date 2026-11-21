@@ -143,6 +143,9 @@ function detailRow(p, cols, head) {
 }
 function render(d) {
   checkWin(d.players); lastD = d;
+  { /* 활동 중 자유 재입장 on/off */ let lb = $('#lockBtn'); if (!lb) { lb = document.createElement('button'); lb.id = 'lockBtn'; lb.type = 'button'; $('#start').after(lb); lb.onclick = () => { lb.disabled = true; act_({ a:'lock', on: lb.dataset.locked === '1' ? 0 : 1 }); }; }
+    lb.disabled = false; lb.hidden = !d.startAt; lb.dataset.locked = d.locked ? '1' : '0';
+    lb.textContent = d.locked ? '활동 비활성화됨 · 눌러서 다시 허용' : '재입장 자유 허용 중 · 눌러서 활동 비활성화'; lb.style.cssText = 'margin-left:8px;' + (d.locked ? 'background:#7a1f2b;color:#fff;border-color:#7a1f2b' : 'background:#e3f4e8;color:#1d6b3a;border-color:#9ccfae'); }
   const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now, st0 = d.startAt, started = st0 > 0 && now >= st0;
   const lostOf = p => !p.clear && now - p.last > LOST;
   const done = P.filter(p => p.clear).length, lost = P.filter(lostOf).length, on = P.filter(p => !lostOf(p)).length;
