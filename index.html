@@ -2921,6 +2921,7 @@ async function netFlush() {
   try {
     const r = await netPost(d);
     if (r.ok) {
+      if (r.cls && NET.me) { NET.me.cls = r.cls; NET.me.num = r.num; NET.me.name = r.name || NET.me.name; } /* 선생님이 번호를 고쳐도 따라간다 */
       NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; if (d.gk != null) NET.sentG = d.gk; NET.away -= d.away; NET.awayMs -= d.awayMs;
       if (d.clear && r.cleared) { NET.wantClear = false; NET.res = r; netShowResult(); }
       if (NET.phase === 'wait' && r.startAt && NET.onStart) { NET.startAt = r.startAt; NET.onStart(); }
