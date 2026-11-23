@@ -2870,7 +2870,7 @@ function startScreen() {
       if (!r.ok) { joining = false; say(r.err === 'taken' ? '이 번호는 다른 기기에서 이미 사용 중이에요. 선생님께 말씀드리세요.' : '입장하지 못했어요. 반과 번호를 확인해 주세요.', true); return; }
       if (r.cls && (r.cls !== me.cls || r.num !== me.num)) { toast('이 기기는 처음 입장한 ' + r.cls + '반 ' + r.num + '번 ' + r.name + ' 기록으로 이어져요.'); } if (r.cls) { me.cls = r.cls; me.num = r.num; me.name = r.name || me.name; } /* 같은 기기는 번호·이름을 바꿔도 처음 기록을 이어 쓴다 */
       try { localStorage.setItem('be_me', JSON.stringify({ cls:me.cls, num:me.num, name:me.name })); } catch (e) {}
-      NET.me = me; NET.live = !r.cleared; S.hintN = r.hints; S.mistakes = r.miss; NET.sentH = r.hints; NET.sentM = r.miss; NET.sentR = r.room; NET.lastSend = Date.now(); NET.startAt = r.startAt || 0;
+      NET.me = me; NET.live = !r.cleared; S.hintN = r.hints; S.mistakes = r.miss; NET.sentH = r.hints; NET.sentM = r.miss; NET.sentR = r.room; NET.lastSend = Date.now(); NET.startAt = r.startAt || 0; NET.endWatch = true; netEndCheck(r);
       const begin = () => { /* 경과 시간은 선생님이 누른 시작 시각부터 잰다 */
         NET.phase = 'play'; NET.onStart = NET.onGone = null; const cp = cpLoad(r, me); go(cp ? cp.room : r.room); if (cp) cpApply(cp); S.t0 = Math.min(Date.now(), netLocal(NET.startAt));
         if (r.cleared) toast('이미 탈출 기록이 있어요. 다시 하는 플레이는 기록되지 않아요.');
@@ -2897,7 +2897,7 @@ function startScreen() {
 
 /* ================= 수업 기록 (구글 시트) ================= */
 const NET_URL = 'https://script.google.com/macros/s/AKfycbzBo5YGuh_8NfPZmz1VJ_Rs9qRFZzqxGMdMmb0cTnVWUvf3vsifeqC_FGRTBzJdhE8/exec'; /* ← 선생님: 구글 시트 웹 앱 주소(…/exec)를 따옴표 안에 붙여 넣으세요. 비워 두면 기록 없이 동작합니다. */
-const NET = { on:!!NET_URL, me:null, live:false, phase:'', sentH:0, sentM:0, sentR:0, away:0, awayMs:0, hidAt:0, busy:false, wantClear:false, lastSend:0, res:null, off:0, startAt:0, onStart:null, onGone:null };
+const NET = { on:!!NET_URL, me:null, live:false, phase:'', sentH:0, sentM:0, sentR:0, away:0, awayMs:0, hidAt:0, busy:false, wantClear:false, lastSend:0, res:null, off:0, startAt:0, onStart:null, onGone:null, endAt:0, endWatch:false, ended:false, endTm:0 };
 const NET_BEAT = 10000; /* 학생 화면이 시트를 확인하는 주기: 시작 신호 확인과 접속 유지 신호 모두 10초 */
 function netTok() { /* 처음 들어온 기기에 묶는 열쇠 */
   let t = ''; try { t = localStorage.getItem('be_tok') || ''; } catch (e) {}
@@ -2911,8 +2911,31 @@ async function netPost(o) { /* 응답의 서버 시각으로 이 기기 시계�
 }
 const netLocal = (serverT) => serverT - NET.off; /* 서버 시각 → 이 기기 시각 */
 function curGk() { try { const L = GIMMICKS.filter(x => x.r === S.room && x.when() && !x.done()).map(x => x.name); return L.length ? L.join(' / ') : '탐색 중'; } catch (e) { return '탐색 중'; } }
+const SURVEY_URL = 'https://naver.me/xuF3CPmH'; /* 전체 완료 뒤 학생에게 안내할 설문 주소 (비우면 버튼 없이 종료 안내만 표시) */
+function netEndCheck(r) { /* 선생님이 '전체 완료'를 누르면 서버가 종료 시각을 알려 준다 */
+  if (NET.ended) return;
+  if (!r.endAt) { if (NET.endAt) { NET.endAt = 0; clearInterval(NET.endTm); const b = $('#endBan'); if (b) b.remove(); } return; }
+  NET.endAt = r.endAt;
+  const upd = () => {
+    const left = Math.ceil((netLocal(NET.endAt) - Date.now()) / 1000);
+    if (left <= 0) { clearInterval(NET.endTm); const b0 = $('#endBan'); if (b0) b0.remove(); netShowEnd(); return; }
+    let b = $('#endBan'); if (!b) { b = document.createElement('div'); b.id = 'endBan'; b.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99998;background:rgba(163,32,47,.95);color:#fff;padding:10px 20px;border-radius:14px;font-weight:700;font-size:17px;box-shadow:0 6px 24px rgba(0,0,0,.4);text-align:center'; document.body.appendChild(b); }
+    b.textContent = '선생님이 수업을 마칩니다. ' + left + '초 뒤 종료돼요.';
+  };
+  clearInterval(NET.endTm); upd(); if (!NET.ended) NET.endTm = setInterval(upd, 250);
+}
+function netShowEnd() { /* 게임을 멈추고 설문 안내 화면을 덮는다 */
+  NET.ended = true; S.playing = false; try { closeModal(); } catch (e) {}
+  const o = document.createElement('div'); o.id = 'endScr'; o.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#16100f;color:#f1e8e2;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px';
+  const w = document.createElement('div'); w.style.maxWidth = '440px';
+  const h = document.createElement('h1'); h.textContent = '방탈출이 끝났어요'; h.style.cssText = 'font-size:30px;margin:0 0 12px';
+  const p = document.createElement('p'); p.textContent = SURVEY_URL ? '수고했어요! 아래 버튼을 눌러 설문에 참여해 주세요.' : '수고했어요! 수업이 끝났어요.'; p.style.cssText = 'font-size:17px;line-height:1.7;margin:0 0 24px';
+  w.append(h, p);
+  if (SURVEY_URL) { const a = document.createElement('a'); a.id = 'endGo'; a.href = SURVEY_URL; a.textContent = '설문조사 하러 가기'; a.style.cssText = 'display:inline-block;background:#a8223a;color:#fff;text-decoration:none;font-size:20px;font-weight:700;padding:14px 30px;border-radius:14px'; w.appendChild(a); }
+  o.appendChild(w); document.body.appendChild(o);
+}
 async function netFlush() {
-  if (!NET.live || NET.busy) return;
+  if (!(NET.live || NET.endWatch) || NET.busy) return;
   const play = NET.phase === 'play';
   const d = { a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:play ? S.room : 1, hint:play ? Math.max(0, S.hintN - NET.sentH) : 0, miss:play ? Math.max(0, S.mistakes - NET.sentM) : 0, away:play ? NET.away : 0, awayMs:play ? NET.awayMs : 0 };
   const gkNow = play ? curGk() : ''; if (play && gkNow !== NET.sentG) d.gk = gkNow; /* 현재 진행 중인 기믹을 선생님 화면에 알린다 */
@@ -2921,16 +2944,17 @@ async function netFlush() {
   try {
     const r = await netPost(d);
     if (r.ok) {
+      netEndCheck(r);
       if (r.cls && NET.me) { NET.me.cls = r.cls; NET.me.num = r.num; NET.me.name = r.name || NET.me.name; } /* 선생님이 번호를 고쳐도 따라간다 */
       NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; if (d.gk != null) NET.sentG = d.gk; NET.away -= d.away; NET.awayMs -= d.awayMs;
       if (d.clear && r.cleared) { NET.wantClear = false; NET.res = r; netShowResult(); }
       if (NET.phase === 'wait' && r.startAt && NET.onStart) { NET.startAt = r.startAt; NET.onStart(); }
-    } else if (r.err === 'taken' || r.err === 'gone') { NET.live = false; if (NET.onGone) NET.onGone(); else toast('선생님이 기록을 초기화했어요. 새로 고친 뒤 다시 입장해 주세요.'); }
+    } else if (r.err === 'taken' || r.err === 'gone') { NET.live = false; NET.endWatch = false; if (NET.onGone) NET.onGone(); else toast('선생님이 기록을 초기화했어요. 새로 고친 뒤 다시 입장해 주세요.'); }
   } catch (e) {}
   NET.busy = false;
 }
 setInterval(() => { /* 바뀐 것이 있으면 곧바로, 없어도 10초마다 접속 유지 신호를 보낸다 */
-  if (!NET.live) return;
+  if (!(NET.live || NET.endWatch)) return;
   const dirty = NET.phase === 'play' && (S.room !== NET.sentR || curGk() !== NET.sentG || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
   if (dirty || Date.now() - NET.lastSend >= NET_BEAT) netFlush();
 }, 1000);
