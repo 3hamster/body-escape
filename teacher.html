@@ -56,6 +56,8 @@ h2{font-size:17px;margin:0 0 10px}
       <div class="row">
         <b id="phase">대기실</b><span id="phaseSub" class="muted"></span><span style="flex:1"></span>
         <button class="pri" id="start" type="button">일괄 시작 (12초 뒤 모두 동시에)</button>
+        <button id="endAll" type="button" style="border-color:var(--bad);color:var(--bad)">전체 완료 (10초 뒤 모두 종료 → 설문)</button>
+        <button id="endCancel" type="button" hidden>종료 취소</button>
       </div>
       <div class="row" style="margin-top:10px">
         <span class="muted">명단</span>
@@ -159,6 +161,11 @@ function render(d) {
     ph.textContent = '곧 시작'; sb.hidden = true; const local = Date.now() + (st0 - now);
     const up = () => { const l = Math.ceil((local - Date.now()) / 1000); sub.textContent = l > 0 ? l + '초 뒤 모든 학생이 동시에 시작합니다.' : '시작!'; }; up(); tick = setInterval(up, 250);
   } else { ph.textContent = '수업 진행 중'; sub.textContent = '시작 시각 ' + new Date(Date.now() + (st0 - now)).toLocaleTimeString('ko-KR') + ' · 경과 ' + fmt((now - st0) / 1000); sb.hidden = true; }
+  /* 전체 완료(종료) 상태 */
+  { const ea = d.endAt || 0; $('#endAll').hidden = !!ea; $('#endCancel').hidden = !(ea && ea > now);
+    if (ea) { sb.hidden = true; const le = ea - now;
+      if (le > 0) { ph.textContent = '곧 종료'; const loc2 = Date.now() + le; const up2 = () => { const l = Math.ceil((loc2 - Date.now()) / 1000); sub.textContent = l > 0 ? l + '초 뒤 모든 학생 화면이 종료되고 설문 버튼이 나옵니다.' : '종료!'; }; up2(); if (tick) clearInterval(tick); tick = setInterval(up2, 250); }
+      else { ph.textContent = '수업 종료'; sub.textContent = '모든 학생에게 설문 안내 화면이 나옵니다. 새 수업은 [전체 초기화]로 시작하세요.'; } } }
   /* 명단 대비 접속 인원 */
   const R = d.roster || { cls:0, n:0, skip:'' };
   if (!rosterShown) { $('#rCls').value = R.cls || ''; $('#rN').value = R.n || ''; $('#rSkip').value = R.skip || ''; rosterShown = true; }
@@ -247,6 +254,8 @@ $('#tabA').onclick = () => { $('#viewA').hidden = false; $('#viewB').hidden = tr
 $('#tabB').onclick = () => { $('#viewA').hidden = true; $('#viewB').hidden = false; $('#tabB').className = 'on'; $('#tabA').className = ''; };
 $('#resetAll').onclick = () => { if (confirm('⚠ 전체 초기화입니다. 모든 학생의 진행 기록, 대기 명단, 시작 시각을 지웁니다.\n한 학생만 다시 시작하게 하려면 취소하고, 그 학생 줄의 [초기화] 버튼을 쓰세요.\n\n정말 모든 학생을 초기화할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
 $('#start').onclick = () => { if (confirm('지금 일괄 시작할까요? 약 12초 뒤 대기 중인 모든 학생이 동시에 시작합니다.')) { $('#start').disabled = true; act_({ a:'start' }); } };
+$('#endAll').onclick = () => { if (confirm('전체 완료할까요?\n10초 뒤 모든 학생의 방탈출이 종료되고, 설문조사 버튼 화면이 나타납니다.')) act_({ a:'endAll' }); };
+$('#endCancel').onclick = () => act_({ a:'endCancel' });
 $('#rSave').onclick = () => { rosterShown = false; act_({ a:'roster', cls:+$('#rCls').value || 0, n:+$('#rN').value || 0, skip:$('#rSkip').value }); };
 $('#clearHall').onclick = () => { if (confirm('명예의 전당 기록을 모두 지울까요? 되돌릴 수 없습니다.')) act_({ a:'clearHall' }); };
 </script>
