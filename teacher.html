@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>몸속 탈출 – 선생님 화면</title>
@@ -70,14 +71,21 @@ h2{font-size:17px;margin:0 0 10px}
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="row" style="margin:14px 0 8px">
-      <button id="tabA" class="on" type="button">진행 현황</button>
+      <button id="tabW" class="on" type="button">대기실</button>
+      <button id="tabA" type="button">진행 중</button>
       <button id="tabB" type="button">명예의 전당</button>
       <span style="flex:1"></span>
       <button id="resetAll" type="button">전체 초기화 · 새 수업 시작 (모든 학생 비우기)</button>
       <button id="clearHall" type="button">명예의 전당 비우기</button>
     </div>
-    <div id="viewA">
+    <div id="viewW">
+      <div class="card"><div class="row" style="align-items:flex-start;gap:20px">
+        <div style="text-align:center"><div id="qrBox" style="background:#fff;padding:12px;border-radius:12px;display:inline-block;line-height:0;min-width:120px;min-height:120px;cursor:zoom-in" title="누르면 크게 보여요"></div><div class="muted" style="font-size:13px;margin-top:6px">누르면 크게 보기</div></div>
+        <div style="flex:1;min-width:220px"><h2 style="margin-bottom:6px">학생 입장 QR</h2><p class="muted" style="margin:0 0 8px">학생이 카메라로 찍으면 바로 게임 화면으로 들어옵니다.</p><div class="row"><code id="stuUrl" style="word-break:break-all;background:var(--bg);padding:4px 8px;border-radius:6px;font-size:14px"></code><button class="sm" id="copyUrl" type="button">주소 복사</button></div><p id="qrMsg" class="muted" style="margin:8px 0 0;font-size:13px"></p></div>
+      </div></div>
       <div class="card"><h2>대기 중 <span id="nWait" class="muted"></span></h2><div id="waitList" class="chips"></div></div>
+    </div>
+    <div id="viewA" hidden>
       <div class="card wrap"><h2>플레이 중 <span id="nPlay" class="muted"></span></h2><table><thead><tr>
         <th>학생</th><th>현재 방</th><th>경과 시간</th><th></th>
       </tr></thead><tbody id="rows"></tbody></table></div>
@@ -187,6 +195,8 @@ function render(d) {
   /* 1) 대기 중: 시작 전에 들어온 학생 */
   const waiting = started ? [] : P, playing = started ? P.filter(p => !p.clear).sort(rankCmp) : [], cleared = P.filter(p => p.clear);
   $('#nWait').textContent = waiting.length ? waiting.length + '명' : ''; $('#nPlay').textContent = playing.length ? playing.length + '명' : ''; $('#nDone').textContent = cleared.length ? cleared.length + '명' : '';
+  $('#tabW').textContent = '대기실' + (waiting.length ? ' (' + waiting.length + ')' : ''); $('#tabA').textContent = '진행 중' + (playing.length ? ' (' + playing.length + ')' : '');
+  if (started !== lastStarted) { lastStarted = started; showTab(started ? 'A' : 'W'); } /* 시작하면 자동으로 진행 중 탭으로 */
   const wl = $('#waitList'); wl.replaceChildren();
   if (!waiting.length) { const m = document.createElement('span'); m.className = 'muted'; m.textContent = started ? '모두 시작했습니다.' : '아직 들어온 학생이 없습니다.'; wl.appendChild(m); }
   waiting.forEach(p => { const c = document.createElement('span'); c.className = 'chip' + (lostOf(p) ? ' lost' : ''); c.title = lostOf(p) ? '접속 끊김' : '대기 중'; c.append((lostOf(p) ? '⚠ ' : '') + p.cls + '-' + p.num + ' ' + p.name); const x = resetBtn(p, '×'); x.title = '이 학생 내보내기(번호 풀기)'; c.appendChild(x); wl.appendChild(c); });
@@ -250,8 +260,17 @@ $('#go').onclick = () => {
   stop(); say('연결하는 중…'); act_({ a:'dash' }); timer = setInterval(() => act_({ a:'dash' }), 5000);
 };
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
-$('#tabA').onclick = () => { $('#viewA').hidden = false; $('#viewB').hidden = true; $('#tabA').className = 'on'; $('#tabB').className = ''; };
-$('#tabB').onclick = () => { $('#viewA').hidden = true; $('#viewB').hidden = false; $('#tabB').className = 'on'; $('#tabA').className = ''; };
+/* 탭: 대기실 / 진행 중 / 명예의 전당 */
+let curTab = '', lastStarted = null;
+function showTab(k) { curTab = k; ['W', 'A', 'B'].forEach(x => { $('#view' + x).hidden = x !== k; $('#tab' + x).className = x === k ? 'on' : ''; }); }
+$('#tabW').onclick = () => showTab('W'); $('#tabA').onclick = () => showTab('A'); $('#tabB').onclick = () => showTab('B');
+/* 학생 입장 QR: 이 선생님 화면과 같은 폴더의 게임 화면(index.html) 주소 */
+const STU_URL = new URL('./', location.href).href.split('#')[0].split('?')[0];
+$('#stuUrl').textContent = STU_URL;
+function drawQR(el, size) { el.replaceChildren(); if (typeof QRCode === 'undefined') { el.textContent = 'QR 만들기 실패'; return false; } new QRCode(el, { text: STU_URL, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); return true; }
+if (!drawQR($('#qrBox'), 180)) { $('#qrMsg').textContent = 'QR 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요. 주소를 직접 알려 줘도 됩니다.'; }
+$('#qrBox').onclick = () => { const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out'; const b = document.createElement('div'); b.style.cssText = 'background:#fff;padding:20px;border-radius:16px;line-height:0'; const s = Math.min(560, innerWidth - 80, innerHeight - 160); drawQR(b, Math.max(200, s)); const t = document.createElement('div'); t.textContent = STU_URL + '  ·  누르면 닫힘'; t.style.cssText = 'color:#fff;font-size:16px;word-break:break-all;text-align:center;padding:0 16px'; o.append(b, t); o.onclick = () => o.remove(); document.body.appendChild(o); };
+$('#copyUrl').onclick = async () => { try { await navigator.clipboard.writeText(STU_URL); $('#copyUrl').textContent = '복사됨'; setTimeout(() => $('#copyUrl').textContent = '주소 복사', 1500); } catch (e) { $('#qrMsg').textContent = '복사하지 못했어요. 주소를 직접 선택해 복사해 주세요.'; } };
 $('#resetAll').onclick = () => { if (confirm('⚠ 전체 초기화입니다. 모든 학생의 진행 기록, 대기 명단, 시작 시각을 지웁니다.\n한 학생만 다시 시작하게 하려면 취소하고, 그 학생 줄의 [초기화] 버튼을 쓰세요.\n\n정말 모든 학생을 초기화할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
 $('#start').onclick = () => { if (confirm('지금 일괄 시작할까요? 약 12초 뒤 대기 중인 모든 학생이 동시에 시작합니다.')) { $('#start').disabled = true; act_({ a:'start' }); } };
 $('#endAll').onclick = () => { if (confirm('전체 완료할까요?\n10초 뒤 모든 학생의 방탈출이 종료되고, 설문조사 버튼 화면이 나타납니다.')) act_({ a:'endAll' }); };
