@@ -192,7 +192,7 @@ function render(d) {
       td.append(rk, nm, no); tr.appendChild(td); if (top) tr.style.background = MB[ix]; }
     const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
     { const g = document.createElement('span'); g.textContent = p.gk || '-'; g.title = '마우스를 올리면 보여요'; g.style.cssText = 'margin-left:10px;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;filter:blur(6px);transition:filter .15s;cursor:default;user-select:none'; const show = on => { g.style.filter = on ? 'none' : 'blur(6px)'; }; g.onmouseenter = () => show(true); g.onmouseleave = () => show(false); g.onclick = () => show(g.style.filter !== 'none'); rc.appendChild(g); } /* 진행 기믹: 평소엔 흐리게, 마우스를 올리면 보인다 */
-    cell(tr, fmt((now - st0) / 1000));
+    cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000)); /* 입장 시각부터 경과 */
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
     db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; if (p.allow) { const t = document.createElement('span'); t.className = 'tag ok'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가됨'; tdb.appendChild(t); } else if (p.req) { const t = document.createElement('span'); t.className = 'tag bad'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가 요청'; tdb.appendChild(t); }
     tdb.appendChild(db);
