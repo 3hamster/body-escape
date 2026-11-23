@@ -3261,24 +3261,24 @@ function cpState() {
     const c = [o.visible ? 1 : 0, o.position.x, o.position.y, o.position.z, o.rotation.x, o.rotation.y, o.rotation.z, o.scale.x, o.scale.y, o.scale.z];
     for (let j = 0; j < 10; j++) if (Math.abs(c[j] - b[j]) > .002) { vis.push([i].concat(c.map(cpR))); break; }
   });
-  return { v:1, u:NET.me.cls + '-' + NET.me.num, st:NET.startAt, hs:S.hintN + S.mistakes, room:S.room, level:S.level, shrunk:!!S.shrunk, items:S.items.slice(), S:s, vis, P:{ x:P.x, z:P.z, yaw:P.yaw, pitch:P.pitch } };
+  return { v:1, ts:Date.now(), u:NET.me.cls + '-' + NET.me.num, st:NET.startAt, hs:S.hintN + S.mistakes, room:S.room, level:S.level, shrunk:!!S.shrunk, items:S.items.slice(), S:s, vis, P:{ x:P.x, z:P.z, yaw:P.yaw, pitch:P.pitch } };
 }
 function cpSig() { let g = ''; try { g = GIMMICKS.filter(x => x.done()).map(x => x.k).join(','); } catch (e) {} return S.room + '|' + S.items.join(',') + '|' + g; }
 function cpSave() {
   if (!NET.on || !NET.live || !NET.me || NET.phase !== 'play' || admin || !NET.startAt) return;
   if (!S.playing || S.ride || S.crawl || S.sizing || S.launching) return; /* 이동·연출 중에는 잠시 미룬다 */
   const sg = cpSig(); if (sg === CP.sig) return;
-  try { localStorage.setItem('be_cp', JSON.stringify(cpState())); CP.sig = sg; } catch (e) {}
+  try { const js = JSON.stringify(cpState()); localStorage.setItem('be_cp', js); CP.sig = sg; if (js.length <= 45000) netPost({ a:'cp', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, cp:js }).catch(() => {}); } catch (e) {} /* 서버(시트)에도 보관 */
 }
 setInterval(cpSave, 1000);
-function cpLoad(r, me) { /* 같은 학생·같은 수업의 저장본만 쓴다 */
+function cpLoad(r, me) { /* 같은 학생·같은 수업의 저장본(이 기기 또는 서버) 중 가장 최근 것을 쓴다 */
   if (r.cleared) return null;
-  try {
-    const cp = JSON.parse(localStorage.getItem('be_cp') || 'null');
-    if (!cp || cp.v !== 1 || cp.u !== me.cls + '-' + me.num || !NET.startAt || cp.st !== NET.startAt) return null;
-    if (cp.room < r.room || cp.room > r.room + 1 || (r.hints + r.miss) < cp.hs) return null; /* 선생님이 초기화했다면 새로 시작 */
-    return cp;
-  } catch (e) { return null; }
+  if (r.fresh) { try { localStorage.removeItem('be_cp'); } catch (e) {} return null; } /* 선생님이 초기화해서 새로 만들어진 기록 */
+  const L = [];
+  try { L.push(JSON.parse(localStorage.getItem('be_cp') || 'null')); } catch (e) {}
+  try { if (r.cp) L.push(JSON.parse(r.cp)); } catch (e) {}
+  const ok = L.filter(cp => cp && cp.v === 1 && cp.u === me.cls + '-' + me.num && NET.startAt && cp.st === NET.startAt && cp.room >= r.room && cp.room <= r.room + 1 && (r.hints + r.miss) >= cp.hs).sort((x, y) => (y.ts || 0) - (x.ts || 0));
+  return ok[0] || null;
 }
 function cpApply(cp) {
   Object.keys(cp.S).forEach(k => { const v = cp.S[k]; S[k] = v && v.__set ? new Set(v.__set) : v; });
