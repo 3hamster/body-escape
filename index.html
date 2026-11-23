@@ -2872,7 +2872,7 @@ function startScreen() {
       try { localStorage.setItem('be_me', JSON.stringify({ cls:me.cls, num:me.num, name:me.name })); } catch (e) {}
       NET.me = me; NET.live = !r.cleared; S.hintN = r.hints; S.mistakes = r.miss; NET.sentH = r.hints; NET.sentM = r.miss; NET.sentR = r.room; NET.lastSend = Date.now(); NET.startAt = r.startAt || 0;
       const begin = () => { /* 경과 시간은 선생님이 누른 시작 시각부터 잰다 */
-        NET.phase = 'play'; NET.onStart = NET.onGone = null; go(r.room); S.t0 = Math.min(Date.now(), netLocal(NET.startAt));
+        NET.phase = 'play'; NET.onStart = NET.onGone = null; const cp = cpLoad(r, me); go(cp ? cp.room : r.room); if (cp) cpApply(cp); S.t0 = Math.min(Date.now(), netLocal(NET.startAt));
         if (r.cleared) toast('이미 탈출 기록이 있어요. 다시 하는 플레이는 기록되지 않아요.');
       };
       if (r.cleared || (NET.startAt && r.now >= NET.startAt)) { begin(); return; } /* 이미 시작된 수업: 곧바로 들어간다(늦은 입장) */
@@ -3245,11 +3245,56 @@ function tickInner() {
 }
 function tick() { try { tickInner(); } catch (err) { console.error('tick error', err); needRender = true; } requestAnimationFrame(tick); }
 
+
+/* ================= 체크포인트 (기믹을 풀어 물건을 얻을 때마다 이 기기에 저장 → 나갔다 다시 들어오면 그 지점부터 이어하기) ================= */
+const CP = { objs:[], base:[], sig:'' };
+const CP_SKIP = new Set(['playing', 'ride', 'crawl', 'sizing', 'launching', 'sel', 'hintN', 'mistakes', 'hintLog', 't0', 'sound', 'lastAct', 'okBusy']);
+function cpTag() { /* 처음 모습을 기억해 두었다가, 바뀐 물체(사라짐·열림 등)만 저장한다 */
+  scene.traverse(o => { CP.objs.push(o); CP.base.push([o.visible ? 1 : 0, o.position.x, o.position.y, o.position.z, o.rotation.x, o.rotation.y, o.rotation.z, o.scale.x, o.scale.y, o.scale.z]); });
+}
+const cpR = v => Math.round(v * 1000) / 1000;
+function cpState() {
+  const s = {}; Object.keys(S).forEach(k => { if (CP_SKIP.has(k)) return; const v = S[k]; s[k] = v instanceof Set ? { __set:[...v] } : v; });
+  const vis = [];
+  CP.objs.forEach((o, i) => {
+    if (o.isLight || o.isCamera) return; const b = CP.base[i];
+    const c = [o.visible ? 1 : 0, o.position.x, o.position.y, o.position.z, o.rotation.x, o.rotation.y, o.rotation.z, o.scale.x, o.scale.y, o.scale.z];
+    for (let j = 0; j < 10; j++) if (Math.abs(c[j] - b[j]) > .002) { vis.push([i].concat(c.map(cpR))); break; }
+  });
+  return { v:1, u:NET.me.cls + '-' + NET.me.num, st:NET.startAt, hs:S.hintN + S.mistakes, room:S.room, level:S.level, shrunk:!!S.shrunk, items:S.items.slice(), S:s, vis, P:{ x:P.x, z:P.z, yaw:P.yaw, pitch:P.pitch } };
+}
+function cpSig() { let g = ''; try { g = GIMMICKS.filter(x => x.done()).map(x => x.k).join(','); } catch (e) {} return S.room + '|' + S.items.join(',') + '|' + g; }
+function cpSave() {
+  if (!NET.on || !NET.live || !NET.me || NET.phase !== 'play' || admin || !NET.startAt) return;
+  if (!S.playing || S.ride || S.crawl || S.sizing || S.launching) return; /* 이동·연출 중에는 잠시 미룬다 */
+  const sg = cpSig(); if (sg === CP.sig) return;
+  try { localStorage.setItem('be_cp', JSON.stringify(cpState())); CP.sig = sg; } catch (e) {}
+}
+setInterval(cpSave, 1000);
+function cpLoad(r, me) { /* 같은 학생·같은 수업의 저장본만 쓴다 */
+  if (r.cleared) return null;
+  try {
+    const cp = JSON.parse(localStorage.getItem('be_cp') || 'null');
+    if (!cp || cp.v !== 1 || cp.u !== me.cls + '-' + me.num || !NET.startAt || cp.st !== NET.startAt) return null;
+    if (cp.room < r.room || cp.room > r.room + 1 || (r.hints + r.miss) < cp.hs) return null; /* 선생님이 초기화했다면 새로 시작 */
+    return cp;
+  } catch (e) { return null; }
+}
+function cpApply(cp) {
+  Object.keys(cp.S).forEach(k => { const v = cp.S[k]; S[k] = v && v.__set ? new Set(v.__set) : v; });
+  S.items = cp.items.slice(); S.sel = null; S.room = cp.room; S.level = cp.level;
+  cp.vis.forEach(a => { const o = CP.objs[a[0]]; if (!o) return; o.visible = !!a[1]; o.position.set(a[2], a[3], a[4]); o.rotation.set(a[5], a[6], a[7]); o.scale.set(a[8], a[9], a[10]); o.updateMatrix(); });
+  P.x = cp.P.x; P.z = cp.P.z; P.yaw = cp.P.yaw; P.pitch = cp.P.pitch;
+  S.shrunk = cp.shrunk; eyeH = S.shrunk ? .16 : 1.6;
+  applyLevelEnv(S.level); refreshPlace(); renderInv(); needRender = true;
+  closeModal(); S.playing = true; CP.sig = cpSig();
+  toast('저장된 지점(' + S.room + '번 방)부터 이어서 시작해요.');
+}
 /* ================= 시작 ================= */
-resize(); buildRoom();
+resize(); buildRoom(); cpTag();
 { const an = renderer.capabilities.getMaxAnisotropy(); scene.traverse(o => { const m = o.material; if (m && m.map) { m.map.anisotropy = Math.min(8, an); m.map.needsUpdate = true; } }); }
 updateHintBtn(); startScreen(); requestAnimationFrame(tick);
-window.BE = { clearScreen:() => clearScreen(), NET, toRoom2, openAdmin, setAdmin, railTraceOf:(c) => railTraceOf(c), sec:() => [sec.E.k, sec.W.k], calm:() => calm, spd:() => spdMul, openBoxLock, openSafeLock, combine, inv:() => invX, toRoom4, shot:() => !!ureaShot, scr:(nm, dx = 0) => { const o = nm === 'urea' ? ureaG : nm === 'glu' ? gluG : sampleG, v = new THREE.Vector3(dx, 0, 0); o.localToWorld(v); camera.updateMatrixWorld(true); v.project(camera); const r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width + r.left, (1 - v.y) / 2 * r.height + r.top]; }, railSolve:() => { if (!rail) railInit(); return railSolveMoves(); }, railTap:(i) => railMoveFn && rail[i] && railMoveFn(rail[i].uid), hl:() => hlMeshes.length, toRoom3, startRide, mqT:() => mqAnim ? +mqAnim.t.toFixed(2) : null, bench:(n = 20) => { const gl = renderer.getContext(); gl.finish(); const t = performance.now(); for (let i = 0; i < n; i++) { renderer.render(scene, camera); gl.finish(); } return (performance.now() - t) / n; }, S, goLevel, act, tap, get P() { return P; }, camera };
+window.BE = { clearScreen:() => clearScreen(), NET, toRoom2, openAdmin, setAdmin, CP, cpState, cpApply, scene, railTraceOf:(c) => railTraceOf(c), sec:() => [sec.E.k, sec.W.k], calm:() => calm, spd:() => spdMul, openBoxLock, openSafeLock, combine, inv:() => invX, toRoom4, shot:() => !!ureaShot, scr:(nm, dx = 0) => { const o = nm === 'urea' ? ureaG : nm === 'glu' ? gluG : sampleG, v = new THREE.Vector3(dx, 0, 0); o.localToWorld(v); camera.updateMatrixWorld(true); v.project(camera); const r = canvas.getBoundingClientRect(); return [(v.x + 1) / 2 * r.width + r.left, (1 - v.y) / 2 * r.height + r.top]; }, railSolve:() => { if (!rail) railInit(); return railSolveMoves(); }, railTap:(i) => railMoveFn && rail[i] && railMoveFn(rail[i].uid), hl:() => hlMeshes.length, toRoom3, startRide, mqT:() => mqAnim ? +mqAnim.t.toFixed(2) : null, bench:(n = 20) => { const gl = renderer.getContext(); gl.finish(); const t = performance.now(); for (let i = 0; i < n; i++) { renderer.render(scene, camera); gl.finish(); } return (performance.now() - t) / n; }, S, goLevel, act, tap, get P() { return P; }, camera };
 })();
 </script>
 </body>
