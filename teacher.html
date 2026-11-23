@@ -71,7 +71,7 @@ h2{font-size:17px;margin:0 0 10px}
       <button id="tabA" class="on" type="button">진행 현황</button>
       <button id="tabB" type="button">명예의 전당</button>
       <span style="flex:1"></span>
-      <button id="resetAll" type="button">새 수업 시작 (기록·대기 명단 비우기)</button>
+      <button id="resetAll" type="button">전체 초기화 · 새 수업 시작 (모든 학생 비우기)</button>
       <button id="clearHall" type="button">명예의 전당 비우기</button>
     </div>
     <div id="viewA">
@@ -195,7 +195,7 @@ function render(d) {
     cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000)); /* 입장 시각부터 경과 */
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
     db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; if (p.allow) { const t = document.createElement('span'); t.className = 'tag ok'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가됨'; tdb.appendChild(t); } else if (p.req) { const t = document.createElement('span'); t.className = 'tag bad'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가 요청'; tdb.appendChild(t); }
-    tdb.appendChild(db);
+    { const rb = resetBtn(p); rb.style.marginRight = '4px'; tdb.appendChild(rb); } tdb.appendChild(db); /* 학생별 초기화 */
     tb.appendChild(tr);
     if (isOpen) {
       const head = document.createElement('div'); head.style.cssText = 'margin:2px 0 8px;line-height:1.9';
@@ -216,7 +216,7 @@ function render(d) {
     const tr = document.createElement('tr'); cell(tr, who(p)); cell(tr, fmt(p.total), 'ok'); cell(tr, fmt(p.play)); cell(tr, String(p.hints)); cell(tr, String(p.miss));
     cell(tr, p.away ? p.away + '회 · ' + fmt(p.awayMs / 1000) : '0', p.away ? 'warn' : '');
     const t = cell(tr, ''); if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.textContent = '관리자 모드 사용'; t.appendChild(a); }
-    { const tdb = document.createElement('td'); tdb.appendChild(editBtn(p)); tr.appendChild(tdb); } dr.appendChild(tr);
+    { const tdb = document.createElement('td'); tdb.appendChild(editBtn(p)); tdb.appendChild(resetBtn(p)); tr.appendChild(tdb); } dr.appendChild(tr);
   });
   const hb = $('#hall'); hb.replaceChildren();
   if (!d.hall.length) { const tr = document.createElement('tr'); const td = cell(tr, '아직 탈출한 학생이 없습니다.', 'muted'); td.colSpan = 5; hb.appendChild(tr); }
@@ -241,7 +241,7 @@ $('#go').onclick = () => {
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
 $('#tabA').onclick = () => { $('#viewA').hidden = false; $('#viewB').hidden = true; $('#tabA').className = 'on'; $('#tabB').className = ''; };
 $('#tabB').onclick = () => { $('#viewA').hidden = true; $('#viewB').hidden = false; $('#tabB').className = 'on'; $('#tabA').className = ''; };
-$('#resetAll').onclick = () => { if (confirm('모든 학생의 진행 기록, 대기 명단, 시작 시각을 지우고 새 수업을 시작할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
+$('#resetAll').onclick = () => { if (confirm('⚠ 전체 초기화입니다. 모든 학생의 진행 기록, 대기 명단, 시작 시각을 지웁니다.\n한 학생만 다시 시작하게 하려면 취소하고, 그 학생 줄의 [초기화] 버튼을 쓰세요.\n\n정말 모든 학생을 초기화할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
 $('#start').onclick = () => { if (confirm('지금 일괄 시작할까요? 약 12초 뒤 대기 중인 모든 학생이 동시에 시작합니다.')) { $('#start').disabled = true; act_({ a:'start' }); } };
 $('#rSave').onclick = () => { rosterShown = false; act_({ a:'roster', cls:+$('#rCls').value || 0, n:+$('#rN').value || 0, skip:$('#rSkip').value }); };
 $('#clearHall').onclick = () => { if (confirm('명예의 전당 기록을 모두 지울까요? 되돌릴 수 없습니다.')) act_({ a:'clearHall' }); };
