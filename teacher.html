@@ -50,6 +50,7 @@ h2{font-size:17px;margin:0 0 10px}
       <button class="pri" id="go" type="button">연결</button>
     </div>
     <p id="msg" class="muted"></p>
+    <label class="muted" style="font-size:13px"><input type="checkbox" id="alertSnd" checked> 이탈 알림 소리 (30초 이상 화면을 벗어나면 알려요)</label>
   </div>
 
   <div id="live" hidden>
@@ -66,6 +67,7 @@ h2{font-size:17px;margin:0 0 10px}
         <input id="rN" type="number" min="1" max="60" placeholder="끝 번호" style="width:90px"><span class="muted">번까지 · 결번</span>
         <input id="rSkip" type="text" placeholder="예: 4, 17" style="width:120px">
         <button id="rSave" type="button">명단 저장</button>
+        <span style="flex:1"></span><span class="muted" style="font-size:13px">학생 입장 QR</span><div id="qrMini" style="background:#fff;padding:5px;border-radius:8px;line-height:0;cursor:zoom-in" title="누르면 크게 보여요"></div>
       </div>
       <p id="missing" style="margin:10px 0 0"></p>
     </div>
@@ -74,6 +76,7 @@ h2{font-size:17px;margin:0 0 10px}
       <button id="tabW" class="on" type="button">대기실</button>
       <button id="tabA" type="button">진행 중</button>
       <button id="tabB" type="button">명예의 전당</button>
+      <button id="tabH" type="button">보관 기록</button>
       <span style="flex:1"></span>
       <button id="csvBtn" type="button">기록 내려받기 (CSV)</button>
       <button id="archiveBtn" type="button">다른 시트에 보관</button>
@@ -98,8 +101,21 @@ h2{font-size:17px;margin:0 0 10px}
     <div class="card wrap" id="viewB" hidden><table><thead><tr>
       <th>순위</th><th>학생</th><th>총 소요 시간</th><th>플레이 시간</th><th>힌트</th>
     </tr></thead><tbody id="hall"></tbody></table></div>
+    <div id="viewH" hidden>
+      <div class="card">
+        <h2>보관한 기록 불러오기</h2>
+        <p class="muted" style="margin:0 0 8px;font-size:13px">[다른 시트에 보관]으로 만든 시트의 기록을 반별로 볼 수 있어요. 목록에서 고르거나 시트 주소를 붙여 넣으세요.</p>
+        <div class="row"><select id="arSel" style="flex:1;min-width:220px;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select><button id="arRefresh" type="button">목록 새로고침</button></div>
+        <div class="row" style="margin-top:8px"><input id="arUrl" type="text" placeholder="또는 보관 시트 주소(https://docs.google.com/spreadsheets/d/…)" autocomplete="off" style="flex:1;min-width:220px"><button class="pri" id="arLoad" type="button">불러오기</button></div>
+        <div class="row" style="margin-top:10px"><span class="muted">반</span><select id="arCls" style="font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select><span id="arInfo" class="muted"></span><span style="flex:1"></span><button class="sm" id="arCsv" type="button">이 화면 CSV</button></div>
+        <p id="arMsg" class="muted" style="margin:8px 0 0;min-height:1.2em"></p>
+      </div>
+      <div class="card wrap"><h2>학생 기록 <span id="arN" class="muted"></span></h2><table><thead id="arHead"></thead><tbody id="arBody"></tbody></table></div>
+      <div class="card wrap"><h2>명예의 전당 (보관)</h2><table><thead id="arHHead"></thead><tbody id="arHBody"></tbody></table></div>
+    </div>
   </div>
 </main>
+<div id="alertBox" style="position:fixed;top:12px;right:12px;z-index:9000;display:flex;flex-direction:column;gap:8px;max-width:min(420px,92vw)"></div>
 <script>
 const $ = s => document.querySelector(s);
 const ROOMS = ['', '1 소화', '2 순환', '3 배설', '4 호흡'];
@@ -158,7 +174,7 @@ const CROWN = ['#f2b200', '#9aa5b1', '#c4773a'], CROWN_BG = ['rgba(242,178,0,.18
 function crownEl(ix, size) { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', size); s.setAttribute('height', size); s.style.cssText = 'vertical-align:middle;margin-right:6px;flex:none'; s.innerHTML = '<path d="M3 8l4.5 4L12 4l4.5 8L21 8l-2 11H5L3 8z" fill="' + CROWN[ix] + '" stroke="rgba(0,0,0,.35)" stroke-width="1" stroke-linejoin="round"/><rect x="5" y="19" width="14" height="2.2" rx="1" fill="' + CROWN[ix] + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>'; s.setAttribute('role', 'img'); s.setAttribute('aria-label', (ix + 1) + '등 왕관'); return s; }
 function rankCell(tr, ix, text) { const td = document.createElement('td'); td.style.whiteSpace = 'nowrap'; if (ix < 3) { td.style.borderLeft = '5px solid ' + CROWN[ix]; tr.style.background = CROWN_BG[ix]; tr.style.fontSize = '18.5px'; /* 1~3등은 기본(14.5px)보다 4pt 크게 */ const b = document.createElement('b'); b.textContent = ix + 1; b.style.cssText = 'display:inline-block;min-width:1.2em;margin-right:6px;color:' + CROWN[ix]; td.append(crownEl(ix, ix === 0 ? 32 : 28), b); const t = document.createElement('b'); t.textContent = text; t.style.fontSize = 'inherit'; td.appendChild(t); } else { td.textContent = text; } tr.appendChild(td); return td; }
 function render(d) {
-  checkWin(d.players); lastD = d;
+  checkWin(d.players); lastD = d; checkAway(d);
   
   const P = d.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num), now = d.now, st0 = d.startAt, started = st0 > 0 && now >= st0;
   const lostOf = p => !p.clear && now - p.last > LOST;
@@ -264,14 +280,16 @@ $('#go').onclick = () => {
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
 /* 탭: 대기실 / 진행 중 / 명예의 전당 */
 let curTab = '', lastStarted = null;
-function showTab(k) { curTab = k; ['W', 'A', 'B'].forEach(x => { $('#view' + x).hidden = x !== k; $('#tab' + x).className = x === k ? 'on' : ''; }); }
-$('#tabW').onclick = () => showTab('W'); $('#tabA').onclick = () => showTab('A'); $('#tabB').onclick = () => showTab('B');
+function showTab(k) { curTab = k; ['W', 'A', 'B', 'H'].forEach(x => { $('#view' + x).hidden = x !== k; $('#tab' + x).className = x === k ? 'on' : ''; }); }
+$('#tabW').onclick = () => showTab('W'); $('#tabA').onclick = () => showTab('A'); $('#tabB').onclick = () => showTab('B'); $('#tabH').onclick = () => { showTab('H'); if (!arListed) arRefreshList(); };
 /* 학생 입장 QR: 이 선생님 화면과 같은 폴더의 게임 화면(index.html) 주소 */
 const STU_URL = new URL('./', location.href).href.split('#')[0].split('?')[0];
 $('#stuUrl').textContent = STU_URL;
 function drawQR(el, size) { el.replaceChildren(); if (typeof QRCode === 'undefined') { el.textContent = 'QR 만들기 실패'; return false; } new QRCode(el, { text: STU_URL, width: size, height: size, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); return true; }
 if (!drawQR($('#qrBox'), 180)) { $('#qrMsg').textContent = 'QR 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요. 주소를 직접 알려 줘도 됩니다.'; }
-$('#qrBox').onclick = () => { const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out'; const b = document.createElement('div'); b.style.cssText = 'background:#fff;padding:20px;border-radius:16px;line-height:0'; const s = Math.min(560, innerWidth - 80, innerHeight - 160); drawQR(b, Math.max(200, s)); const t = document.createElement('div'); t.textContent = STU_URL + '  ·  누르면 닫힘'; t.style.cssText = 'color:#fff;font-size:16px;word-break:break-all;text-align:center;padding:0 16px'; o.append(b, t); o.onclick = () => o.remove(); document.body.appendChild(o); };
+const showQrBig = () => { const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out'; const b = document.createElement('div'); b.style.cssText = 'background:#fff;padding:20px;border-radius:16px;line-height:0'; const s = Math.min(560, innerWidth - 80, innerHeight - 160); drawQR(b, Math.max(200, s)); const t = document.createElement('div'); t.textContent = STU_URL + '  ·  누르면 닫힘'; t.style.cssText = 'color:#fff;font-size:16px;word-break:break-all;text-align:center;padding:0 16px'; o.append(b, t); o.onclick = () => o.remove(); document.body.appendChild(o); };
+$('#qrBox').onclick = showQrBig; $('#qrMini').onclick = showQrBig;
+drawQR($('#qrMini'), 96);
 $('#copyUrl').onclick = async () => { try { await navigator.clipboard.writeText(STU_URL); $('#copyUrl').textContent = '복사됨'; setTimeout(() => $('#copyUrl').textContent = '주소 복사', 1500); } catch (e) { $('#qrMsg').textContent = '복사하지 못했어요. 주소를 직접 선택해 복사해 주세요.'; } };
 /* 기록 보관: CSV 내려받기 / 새 구글 시트에 사본 만들기 */
 const csvCell = v => { v = String(v == null ? '' : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -305,6 +323,81 @@ $('#endAll').onclick = () => { if (confirm('전체 완료할까요?\n10초 뒤 �
 $('#endCancel').onclick = () => act_({ a:'endCancel' });
 $('#rSave').onclick = () => { rosterShown = false; act_({ a:'roster', cls:+$('#rCls').value || 0, n:+$('#rN').value || 0, skip:$('#rSkip').value }); };
 $('#clearHall').onclick = () => { if (confirm('명예의 전당 기록을 모두 지울까요? 되돌릴 수 없습니다.')) act_({ a:'clearHall' }); };
+
+/* ===== 화면 이탈(30초 이상) 알림 ===== */
+const AWAY_ALERT_MS = 30000; let awaySeen = null, lostSeen = null; const alertCards = new Set(); const baseTitle = document.title;
+function parseAway(p) { return String(p.log || '').split('|').filter(Boolean).map(s => s.split(',')).filter(e => e[0] === 'a').map(e => ({ t:+e[1], ms:+e[2] || 0 })); }
+function beep() { if (!$('#alertSnd') || !$('#alertSnd').checked) return; try { const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = 880; g.gain.value = .18; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + .22); setTimeout(() => { try { ac.close(); } catch (e) {} }, 700); } catch (e) {} }
+function refreshAlertTitle() { document.title = alertCards.size ? '(⚠ ' + alertCards.size + ') ' + baseTitle : baseTitle; }
+function showAlert(text, kind) {
+  const box = $('#alertBox'); if (!box) return;
+  const c = document.createElement('div'); c.style.cssText = 'background:#b3261e;color:#fff;border-radius:12px;padding:10px 12px 10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.45';
+  const t = document.createElement('div'); t.style.flex = '1'; t.textContent = '⚠ ' + text;
+  const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', '알림 닫기'); x.style.cssText = 'background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:0 8px;border-radius:6px;cursor:pointer';
+  x.onclick = () => { c.remove(); alertCards.delete(c); refreshAlertTitle(); };
+  c.append(t, x); box.appendChild(c); alertCards.add(c); while (box.children.length > 6) { const f = box.firstChild; alertCards.delete(f); f.remove(); }
+  refreshAlertTitle(); beep();
+}
+function checkAway(d) {
+  const first = awaySeen === null; if (first) { awaySeen = new Set(); lostSeen = new Set(); }
+  d.players.forEach(p => {
+    const who = p.cls + '반 ' + p.num + '번 ' + p.name;
+    parseAway(p).forEach(e => { const id = p.key + ',' + e.t; if (awaySeen.has(id)) return; awaySeen.add(id); if (!first && e.ms >= AWAY_ALERT_MS) showAlert(who + ' 학생이 화면을 ' + Math.round(e.ms / 1000) + '초 동안 벗어났다가 돌아왔어요. (' + new Date(e.t).toLocaleTimeString('ko-KR') + ')'); });
+    const lost = !p.clear && d.now - p.last > 30000, k = p.key;
+    if (lost) { if (!lostSeen.has(k)) { lostSeen.add(k); if (!first) showAlert(who + ' 학생의 신호가 30초 넘게 끊겼어요. 화면을 벗어났거나 연결이 끊긴 것 같아요.'); } } else lostSeen.delete(k);
+  });
+}
+/* ===== 보관한 기록 불러오기 (반별) ===== */
+let arListed = false, AR = null;
+const arFmtCols = /\(초\)/;
+const arSay = (t, cls) => { const m = $('#arMsg'); m.textContent = t; m.className = cls || 'muted'; };
+async function arRefreshList(quiet) {
+  if (!url) { arSay('먼저 위에서 서버에 연결해 주세요.', 'warn'); return; }
+  try {
+    const r = await call({ a:'archList' }); if (!r.ok) { arSay('목록을 불러오지 못했어요.', 'bad'); return; }
+    arListed = true; const s = $('#arSel'); s.replaceChildren();
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = r.list.length ? '보관 목록에서 고르기…' : '(보관한 기록이 아직 없어요)'; s.appendChild(o0);
+    r.list.forEach(x => { const o = document.createElement('option'); o.value = x.id; o.textContent = (x.name || '보관 시트') + (x.n != null ? ' · 학생 ' + x.n + '명' : ''); s.appendChild(o); });
+    if (!quiet) arSay(r.list.length ? '목록에서 고른 뒤 [불러오기]를 누르세요.' : '[다른 시트에 보관]을 쓰거나 시트 주소를 붙여 넣어 불러오세요.');
+  } catch (e) { arSay('서버에 연결하지 못했어요.', 'bad'); }
+}
+function arRender() {
+  const head = $('#arHead'), body = $('#arBody'), hh = $('#arHHead'), hb = $('#arHBody'); head.replaceChildren(); body.replaceChildren(); hh.replaceChildren(); hb.replaceChildren();
+  if (!AR) return;
+  const H = AR.players[0] || [], ci = H.indexOf('반'), sel = $('#arCls').value;
+  const rows = AR.players.slice(1).filter(r => !sel || String(r[ci]) === sel).sort((a, b) => (+a[ci] - +b[ci]) || (+a[H.indexOf('번호')] - +b[H.indexOf('번호')]));
+  const fmtv = (h, v) => (arFmtCols.test(h) && v !== '' && !isNaN(+v)) ? fmt(+v) : v;
+  const tr0 = document.createElement('tr'); H.forEach(h => { const th = document.createElement('th'); th.textContent = h.replace('(초)', ''); tr0.appendChild(th); }); head.appendChild(tr0);
+  rows.forEach(r => { const tr = document.createElement('tr'); H.forEach((h, i) => cell(tr, fmtv(h, r[i] == null ? '' : r[i]))); body.appendChild(tr); });
+  if (!rows.length) { const tr = document.createElement('tr'); const td = cell(tr, '기록이 없어요.', 'muted'); td.colSpan = H.length || 1; body.appendChild(tr); }
+  $('#arN').textContent = rows.length + '명' + (sel ? ' (' + sel + '반)' : '');
+  const H2 = (AR.hall && AR.hall[0]) || [], c2 = H2.indexOf('반');
+  const hrows = (AR.hall || []).slice(1).filter(r => !sel || String(r[c2]) === sel);
+  const th2 = document.createElement('tr'); H2.forEach(h => { const th = document.createElement('th'); th.textContent = h.replace('(초)', ''); th2.appendChild(th); }); hh.appendChild(th2);
+  hrows.forEach((r, i) => { const tr = document.createElement('tr'); H2.forEach((h, k) => cell(tr, fmtv(h, r[k] == null ? '' : r[k]))); hb.appendChild(tr); });
+  if (!hrows.length) { const tr = document.createElement('tr'); const td = cell(tr, '명예의 전당 기록이 없어요.', 'muted'); td.colSpan = H2.length || 1; hb.appendChild(tr); }
+  AR.view = { H, rows };
+}
+async function arLoad() {
+  if (!url) { arSay('먼저 위에서 서버에 연결해 주세요.', 'warn'); return; }
+  const id = $('#arUrl').value.trim() || $('#arSel').value; if (!id) { arSay('목록에서 고르거나 시트 주소를 붙여 넣어 주세요.', 'warn'); return; }
+  $('#arLoad').disabled = true; arSay('불러오는 중…');
+  try {
+    const r = await call({ a:'archLoad', id });
+    if (!r.ok) { arSay(r.err === 'badid' ? '시트 주소가 올바르지 않아요.' : r.err === 'open' ? '시트를 열 수 없어요. 이 서버를 만든 계정의 시트인지 확인해 주세요.' : r.err === 'format' ? '[다른 시트에 보관]으로 만든 시트가 아니에요. ("학생 기록" 탭이 필요해요)' : '불러오지 못했어요' + (r.msg ? ' (' + r.msg + ')' : '') + '.', 'bad'); }
+    else {
+      AR = { name:r.name, players:r.players, hall:r.hall };
+      const H = r.players[0] || [], ci = H.indexOf('반'), cs = [...new Set(r.players.slice(1).map(x => String(x[ci])).filter(x => x !== ''))].sort((a, b) => a - b), s = $('#arCls'); s.replaceChildren();
+      const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '전체'; s.appendChild(o0); cs.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c + '반'; s.appendChild(o); });
+      if (cs.length === 1) s.value = cs[0];
+      $('#arInfo').textContent = r.name; arRender(); arSay('불러왔어요. 위의 [반]을 바꿔 반별로 볼 수 있어요.', 'ok'); arRefreshList(true);
+    }
+  } catch (e) { arSay('서버에 연결하지 못했어요.', 'bad'); }
+  $('#arLoad').disabled = false;
+}
+$('#arRefresh').onclick = arRefreshList; $('#arLoad').onclick = arLoad; $('#arCls').onchange = arRender;
+$('#arSel').onchange = () => { if ($('#arSel').value) $('#arUrl').value = ''; };
+$('#arCsv').onclick = () => { if (!AR || !AR.view) { arSay('먼저 기록을 불러와 주세요.', 'warn'); return; } const a = document.createElement('a'); const rows = [AR.view.H].concat(AR.view.rows); a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(csvCell).join(',')).join('\r\n')], { type:'text/csv;charset=utf-8' })); a.download = '보관기록_' + (AR.name || '') + '_' + ($('#arCls').value ? $('#arCls').value + '반_' : '') + stamp() + '.csv'; document.body.appendChild(a); a.click(); a.remove(); };
 </script>
 </body>
 </html>
