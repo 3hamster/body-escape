@@ -2600,44 +2600,44 @@ const RED = t => '<b style="color:#ff4d4d">' + t + '</b>';
 const GIMMICKS = [
   /* 소화의 방 */
   { r:1, k:'r1cab', name:'시약보관함 방향자물쇠', acts:['cabinet'], when:() => !S.cabOpen, done:() => S.cabOpen,
-    hints:() => ['각 지시약의 방향과 힌트를 연결시켜보세요.', '면을 싫어하는 사람이면 면을 빼버리고 싶지 않을까요?'] },
+    hints:() => ['각 지시약의 방향과 힌트를 연결시켜보세요.', '메뉴판에 "난 면이 싫은데…"라고 적혀 있으니 메뉴 이름에서 "면"을 빼 보세요. 탄탄·단·당·지가 남아요. 탄탄 = 위 위(▲▲), 단 = 왼쪽(◀), 당 = 오른쪽(▶), 지 = 아래(▼). 이 순서대로 ▲▲◀▶▼ 를 누르세요.'] },
   { r:1, k:'r1sal', name:'시약보관함 침용액', acts:['sbox', 'board', 'cabinet'], when:() => S.cabOpen && S.stage < 1, done:() => S.stage >= 1,
-    hints:() => ['메뉴판을 찾아보세요.', '각 메뉴들을 따라갔을 때 무엇이 보이는지 확인해보세요.'] },
+    hints:() => ['메뉴판을 찾아보세요.', '벽의 음식판 옆 주문서에 세트 세 개가 있어요. 세트에 적힌 음식 순서대로 음식판을 눌러 선을 이으면 알파벳이 그려져요. 푸짐한 식사 = F, 든든한 간식 = A, 달콤한 후식 = T. 상자 쪽지의 아침·점심·저녁 순서대로 FAT 를 상자 자물쇠에 맞추세요.'] },
   { r:1, k:'r1cake1', name:'가래떡 (녹이기 전)', acts:['cake'], when:() => !S.cakeGone, done:() => S.cakeGone,
-    hints:() => ['녹말을 녹이는 것은 무엇일까요?'] },
+    hints:() => ['녹말을 녹이는 것은 무엇일까요?', '시약장 안 상자에서 꺼낸 "침 용액"(침 속 아밀레이스가 녹말을 분해해요)을 가방에서 선택한 뒤, 가래떡을 눌러 사용하세요.'] },
   { r:1, k:'r1cake2', name:'가래떡 (녹이기 후)', acts:['cake', 'nutrient'], when:() => S.cakeGone && !S.nutrientGone, done:() => S.nutrientGone,
-    hints:() => ['융털이 흡수를 잘하게 만들려면 어떻게 하면 될까요?'] },
+    hints:() => ['융털이 흡수를 잘하게 만들려면 어떻게 하면 될까요?', '뉴턴 초상화에서 얻은 납작한 "가공되지 않은 융털"과 가방 속 "가위"를 서로 사용해 합치면 표면이 울퉁불퉁한 "가공된 융털"이 돼요. 그 융털을 선택해 녹아내린 영양소에 사용하세요.'] },
   { r:1, k:'r1door', name:'출구 비밀번호', acts:['door'], when:() => !S.opened && (S.stage >= 3 || hasI('paper')), done:() => S.opened,
-    hints:() => ['문장안에서 숫자를 찾아보세요.'] },
+    hints:() => ['문장안에서 숫자를 찾아보세요.', '쪽지 문장에서 한자어 숫자(일·이·삼·사·오·육·칠·팔·구)로 읽히는 글자를 순서대로 찾으세요. 삼키는 → "삼" 3, 아밀레이스 → "이" 2, 녹말이 → "이" 2, 구해줘 → "구" 9. 비밀번호는 3229 예요.'] },
   /* 순환의 방 */
   { r:2, k:'r2num', name:'벽에 붙은 숫자 종이', acts:['drawerLock', 'codepaper'], when:() => S.codeRead && !S.drawerUnlocked, done:() => S.drawerUnlocked,
-    hints:() => ['기차놀이', '끝말잇기', '숫자를 다른 언어로 읽어보세요.', '숫자를 영어로 적어보세요.'] },
+    hints:() => ['기차놀이', '숫자를 영어로 쓰면 각 줄이 끝말잇기가 돼요. two → one → eight → ten 처럼 앞 단어의 끝 글자가 다음 단어의 첫 글자와 같아요. 예) seven → (?) → eight 에서 ?는 n으로 시작하고 e로 끝나는 nine = 9. 나머지 두 줄(three → ? → two, zero → ? → eight)도 같은 방법으로 찾아 세 숫자를 차례로 이으세요.', '?에 들어갈 숫자는 9, 8, 1 이에요. 서랍의 세 자리 숫자 자물쇠에 981 을 입력하세요.'] },
   { r:2, k:'r2rbc', name:'적혈구 사용', acts:['vein', 'artery', 'ra'], when:() => S.sel === 'redblood' && !S.raTaken, done:() => S.raTaken,
-    hints:() => ['혈관에서 혈액이 흐를 때 어느 방향으로 흐를까요?'] },
+    hints:() => ['혈관에서 혈액이 흐를 때 어느 방향으로 흐를까요?', '적혈구는 동맥(붉은 혈관)을 타고 올라가 천장의 모세혈관을 지나 정맥(푸른 혈관)으로 내려와요. 정맥에는 거꾸로 못 올라가게 막는 판막이 있어요. 가방에서 적혈구를 선택해 가운데(두 번째) 붉은 혈관에 사용하면, 반대편 푸른 혈관 높은 곳에 끼어 있던 우심방이 떨어져요.'] },
   { r:2, k:'r2note', name:'노트의 힌트(신조어)', acts:['note', 'codeNote', 'letter'], when:() => S.noteRead && !S.lTaken, done:() => S.lTaken,
-    hints:() => ['당신은 L을 가져갈 수 있습니다.', '피는 영어로 BLOOD'] },
+    hints:() => ['당신은 L을 가져갈 수 있습니다.', '소화의 방에서 들어온 쪽 벽에 BLLOOD 글자가 붙어 있어요. 그중 L 하나를 눌러 떼어 내면 ㄱ자 "L 막대"를 얻어요. 이 막대를 선택해 서랍장 뒤 틈에 끼어 있는 심장 조각(좌심실)에 사용하세요.'] },
   { r:2, k:'r2door', name:'탈출구 방향열쇠', acts:['door2', 'floorPaper'], when:() => S.floorPaperRead && !S.door2Open, done:() => S.door2Open,
-    hints:() => ['이 방안에 탈출을 하기 위한 방법이 적혀있습니다.', '산소를 구하는 여정을 떠나 돌아오는 것은, 어떤 순환 과정일까요? 그 길을 따라 가보세요.'] },
+    hints:() => ['이 방안에 탈출을 하기 위한 방법이 적혀있습니다.', '바닥 종이의 그림에서 우심실에서 출발해 폐를 거쳐 좌심방으로 돌아오는 선(폐순환)을 따라가세요. 우심실에서 오른쪽(▶) → 위로 올라 폐(▲) → 폐에서 오른쪽(▶) → 아래(▼) → 왼쪽(◀)으로 좌심방에 도착해요. 문의 방향 자물쇠에 ▶▲▶▼◀ 를 누르세요.'] },
   /* 배설의 방 */
   { r:3, k:'r3seg', name:'세그먼트', acts:['seg', 'segpaper', 'safe', 'hammer'], when:() => S.segRead && !S.safeOpen, done:() => S.safeOpen,
-    hints:() => ['시간의 흐름을 부수려면 어떤 도구를 사용해야할까요?', '깨진 숫자를 보았을 때 보이지 않는 부분을 바라보세요.'] },
+    hints:() => ['시간의 흐름을 부수려면 어떤 도구를 사용해야할까요?', '가방의 망치를 선택해 벽의 시계 숫자(08:29) 네 칸을 하나씩 내리치세요. 부서진 뒤 어두워진(꺼진) 칸들이 알파벳 모양이 돼요. 왼쪽부터 F, I, S, H 이므로 금고 자물쇠에 영어 단어 fish 를 적으세요.'] },
   { r:3, k:'r3book', name:'움직이는 책장 (요소 빼내기)', acts:['book', 'lever', 'memo', 'dict'], when:() => S.memoRead && !S.shelfOpen, done:() => S.shelfOpen,
-    hints:() => ['책장에서 요소를 빼내야 합니다.', '책은 26권 있습니다. 26개 있는 것이 무엇일까요?', '책의 번호는 각 알파벳에 대응됩니다.', 'UREA의 알파벳에 해당하는 책 4권을 빼내야합니다.'] },
+    hints:() => ['책장에서 요소를 빼내야 합니다.', '책 26권의 번호는 알파벳 순서예요(A=1, B=2 … Z=26). 요소의 영어 UREA 는 U=21, R=18, E=5, A=1 이므로, 1번·5번·18번·21번 책 4권을 꺼낸 뒤 레버를 당기세요.'] },
   { r:3, k:'r3micro', name:'전자현미경 및 요소와 포도당 회수', acts:['micro', 'prep', 'slide', 'ladder', 'ladderUp', 'sample', 'lump'], when:() => S.level === 3 && !S.gluTaken, done:() => S.gluTaken,
-    hints:() => ['축소광선을 사용해보세요.'] },
+    hints:() => ['축소광선을 사용해보세요.', '금고에서 나온 프레파라트를 전자현미경에 올려 관찰한 뒤, 가방의 축소광선으로 몸을 줄이세요. 줄어든 몸으로 현미경 앞 사다리를 올라가 받침대 위의 "요소"와 "포도당"을 모두 주우세요.'] },
   { r:3, k:'r3slide', name:'세뇨관 워터슬라이드', acts:['glu', 'mladder', 'hole', 'puz'], when:() => S.level === 3 && !!S.gluTaken, done:() => S.level !== 3,
-    hints:() => ['탑승하세요', '포도당 위에 올라타세요.'] },
+    hints:() => ['탑승하세요', '몸이 줄어든 상태에서 요소를 가방에 가진 채, 가방에서 "포도당"을 선택한 다음 바닥의 세뇨관(물이 흘러 내려가는 가는 관)을 누르세요. 포도당에 올라타 세뇨관을 타고 내려가요.'] },
   { r:3, k:'r3urea', name:'요소배출장치', acts:['launcher', 'pad', 'urea', 'cap'], when:() => S.level === 4, done:() => S.level !== 4,
-    hints:() => ['요소배출장치로 요소를 발사해 열쇠를 얻은 후 재흡수 되세요.'] },
+    hints:() => ['요소배출장치로 요소를 발사해 열쇠를 얻은 후 재흡수 되세요.', '요소 배출 장치는 조각을 밀어 관을 잇는 퍼즐이에요. 빈칸 옆 조각을 눌러 밀어서 왼쪽 시작점에서 출구(▼)까지 관이 끊기지 않게 이은 뒤 "요소 넣기" → "발사"를 누르세요. 열쇠가 든 조각이 깨지면 열쇠를 줍고, 가방의 포도당을 선택해 모세혈관 발판에 사용하면 재흡수되어 올라가요.'] },
   /* 호흡의 방 */
   { r:4, k:'r4door', name:'안쪽 문의 자물쇠', acts:['door4'], when:() => !S.door4Open && signOn(), done:() => S.door4Open,
-    hints:() => ['공통으로 들어갈 말을 쓰시오'] },
+    hints:() => ['공통으로 들어갈 말을 쓰시오', '시□, 롯데□, 박테□, 이탈□ 의 빈칸에 같은 말을 넣으면 시리아, 롯데리아, 박테리아, 이탈리아가 돼요. 정답은 "리아"예요.'] },
   { r:4, k:'r4ball', name:'고무풍선 줍기', acts:['balloon'], when:() => !S.secE, done:() => S.secE,
-    hints:() => ['천장에 그려진 지도를 잘 보고 숨은 무언가를 찾아보세요.'] },
+    hints:() => ['천장에 그려진 지도를 잘 보고 숨은 무언가를 찾아보세요.', '천장 배치도의 빨간 동그라미 두 곳이 고무풍선이 있는 바닥 자리예요. 서로 대각선 반대편의 두 모서리(환풍구가 있는 벽 쪽 모서리 하나, 그 반대편 맨 안쪽 벽의 반대쪽 모서리 하나) 바닥을 가까이서 살펴 풍선 두 개를 줍고, 가방에서 서로 합치세요.'] },
   { r:4, k:'r4left', name:'왼쪽문', acts:['secwall', 'lungpaper'], side:'W', when:() => !S.secW, done:() => S.secW,
-    hints:() => ['용의 꼬리보다는 뱀의 ' + RED('머리') + '가 되겠다.', '각 숫자를 영어로 써보세요.', '각 숫자를 영어로 쓴 후, 알파벳 순서를 세어보세요.'] },
+    hints:() => ['용의 꼬리보다는 뱀의 ' + RED('머리') + '가 되겠다.', '각 자리의 숫자를 영어로 쓰고, n번째 자리에서는 영어 단어의 n번째 글자를 가져와요. 예) 111 = one (o, n, e), 4679 = five (four의 1번째 f, six의 2번째 i, seven의 3번째 v, nine의 4번째 e). 7588 도 같은 방법으로 읽어 보세요.', '7588 은 seven의 1번째 S, five의 2번째 I, eight의 3번째 G, eight의 4번째 H 이므로 정답은 SIGH 예요.'] },
   { r:4, k:'r4right', name:'오른쪽 문', acts:['secwall', 'bmodel', 'balloonmix'], side:'E', when:() => !S.secE, done:() => S.secE,
-    hints:() => ['고무 풍선을 폐 모형에 넣어보세요.', RED('들') + '짐승과 ' + RED('날') + '짐승은 숨을 한번씩 쉬어요.'] }
+    hints:() => ['고무 풍선을 폐 모형에 넣어보세요.', '합친 고무풍선을 호흡 모형에 달고, 아래 손잡이(횡격막)를 아래로 당겼을 때 보이는 숫자 두 개와 위로 올렸을 때 보이는 숫자 두 개를 차례로 이어 네 자리로 입력하세요. 그렇게 읽은 번호는 4758 이에요.'] }
 ];
 let hintCtx = null;
 const signOn = () => !!((S.gasO || S.gotO2 || hasI('oxygen')) && (S.gasC || S.gotCO2 || hasI('carbon'))); /* 양쪽 벽을 풀고 산소·이산화탄소를 얻으면 문의 글이 나타난다 */
@@ -2715,7 +2715,7 @@ function giveHint(g, quizOk) {
   const r = S.room, L = g.hints(), lv = Math.min(GH[g.k] || 0, L.length - 1), t = L[lv]; GH[g.k] = (GH[g.k] || 0) + 1; S.hintN++;
   S.hintLog.push(`<b>${g.name}</b> – ${t}`); (S.hintLogR = S.hintLogR || []).push(r); sfx('ok'); updateHintBtn();
   const prev = L.slice(0, lv).map((x, i) => `<p class="muted" style="margin:2px 0">${i + 1}. ${x}</p>`).join('');
-  showModal(`<h3>${quizOk ? '정답!' : '힌트'}</h3><p class="muted">${g.name}</p>${prev}<p class="hand" style="font-size:24px;color:var(--bone);margin:8px 0">${lv + 1}. ${t}</p><div class="row"><button class="btn primary" id="qdone" type="button">확인</button></div>`);
+  showModal(`<h3>${quizOk ? '정답!' : '힌트'}</h3><p class="muted">${g.name}</p>${prev}<p class="hand" style="font-size:${t.length > 50 ? 19 : 24}px;line-height:1.55;color:var(--bone);margin:8px 0">${lv + 1}. ${t}</p><div class="row"><button class="btn primary" id="qdone" type="button">확인</button></div>`);
   $('#qdone').onclick = hintReopen;
 }
 function useHint(fromModal) {
