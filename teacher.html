@@ -91,6 +91,7 @@ h2{font-size:17px;margin:0 0 10px}
       <div class="card"><h2>대기 중 <span id="nWait" class="muted"></span></h2><div id="waitList" class="chips"></div></div>
     </div>
     <div id="viewA" hidden>
+      <div class="card" id="lostPanel" hidden style="border-color:var(--bad)"><h2 class="bad">⚠ 미접속 중인 학생 <span id="nLost" class="muted"></span></h2><div id="lostList" class="chips"></div><p class="muted" style="margin:8px 0 0;font-size:13px">30초 넘게 신호가 없는 학생이에요. 화면을 벗어났거나 연결이 끊겼을 수 있어요. 돌아오면 자동으로 사라져요.</p></div>
       <div class="card wrap"><h2>플레이 중 <span id="nPlay" class="muted"></span></h2><table><thead><tr>
         <th>학생</th><th>현재 방</th><th>경과 시간</th><th></th>
       </tr></thead><tbody id="rows"></tbody></table></div>
@@ -231,7 +232,7 @@ function render(d) {
       td.append(rk, nm, no); tr.appendChild(td); if (top) tr.style.background = MB[ix]; }
     const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
     { const g = document.createElement('span'); g.textContent = p.gk || '-'; g.title = '마우스를 올리면 보여요'; g.style.cssText = 'margin-left:10px;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;filter:blur(6px);transition:filter .15s;cursor:default;user-select:none'; const show = on => { g.style.filter = on ? 'none' : 'blur(6px)'; }; g.onmouseenter = () => show(true); g.onmouseleave = () => show(false); g.onclick = () => show(g.style.filter !== 'none'); rc.appendChild(g); } /* 진행 기믹: 평소엔 흐리게, 마우스를 올리면 보인다 */
-    cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000)); /* 입장 시각부터 경과 */
+    { const td = cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000)); if (lostOf(p)) { td.appendChild(document.createTextNode(' ')); const lt = document.createElement('span'); lt.className = 'tag bad lostDur'; lt.dataset.last = p.last; lt.textContent = '미접속 ' + fmt((now - p.last) / 1000); td.appendChild(lt); tr.style.background = 'rgba(179,38,30,.10)'; } } /* 30초 넘게 신호가 없는 학생은 미접속 시간을 표시 */ /* 입장 시각부터 경과 */
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
     db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; if (p.allow) { const t = document.createElement('span'); t.className = 'tag ok'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가됨'; tdb.appendChild(t); } else if (p.req) { const t = document.createElement('span'); t.className = 'tag bad'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가 요청'; tdb.appendChild(t); }
     { const rb = resetBtn(p); rb.style.marginRight = '4px'; tdb.appendChild(rb); } tdb.appendChild(db); /* 학생별 초기화 */
@@ -248,6 +249,11 @@ function render(d) {
       tb.appendChild(detailRow(p, 4, head));
     }
   });
+  /* 미접속(30초 넘게 신호 없음) 학생 목록: 진행 중 탭 맨 위에 이름과 미접속 시간을 띄운다 */
+  lastBase = { now:now, at:Date.now() };
+  { const lp = playing.filter(lostOf); $('#lostPanel').hidden = !lp.length; $('#nLost').textContent = lp.length ? lp.length + '명' : ''; const ll = $('#lostList'); ll.replaceChildren();
+    lp.forEach(p => { const c = document.createElement('span'); c.className = 'chip lost'; c.style.paddingRight = '12px'; const n = document.createElement('b'); n.textContent = p.cls + '반 ' + p.num + '번 ' + p.name; const t = document.createElement('span'); t.className = 'lostDur'; t.dataset.last = p.last; t.textContent = ' · 미접속 ' + fmt((now - p.last) / 1000); t.style.marginLeft = '4px'; c.append(n, t); ll.appendChild(c); });
+    $('#tabA').textContent = '진행 중' + (playing.length ? ' (' + playing.length + ')' : '') + (lp.length ? ' ⚠' + lp.length : ''); }
   /* 3) 탈출 완료 */
   const dr = $('#doneRows'); dr.replaceChildren();
   if (!cleared.length) empty(dr, 7, '아직 탈출한 학생이 없습니다.');
@@ -279,7 +285,8 @@ $('#go').onclick = () => {
 };
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
 /* 탭: 대기실 / 진행 중 / 명예의 전당 */
-let curTab = '', lastStarted = null;
+let curTab = '', lastStarted = null, lastBase = null;
+setInterval(() => { if (!lastBase) return; const sn = lastBase.now + (Date.now() - lastBase.at); document.querySelectorAll('.lostDur').forEach(e => { const txt = '미접속 ' + fmt((sn - +e.dataset.last) / 1000); e.textContent = e.tagName === 'SPAN' && e.parentElement && e.parentElement.classList.contains('chip') ? ' · ' + txt : txt; }); }, 1000); /* 미접속 시간을 1초마다 늘려 보여 준다 */
 function showTab(k) { curTab = k; ['W', 'A', 'B', 'H'].forEach(x => { $('#view' + x).hidden = x !== k; $('#tab' + x).className = x === k ? 'on' : ''; }); }
 $('#tabW').onclick = () => showTab('W'); $('#tabA').onclick = () => showTab('A'); $('#tabB').onclick = () => showTab('B'); $('#tabH').onclick = () => { showTab('H'); if (!arListed) arRefreshList(); };
 /* 학생 입장 QR: 이 선생님 화면과 같은 폴더의 게임 화면(index.html) 주소 */
