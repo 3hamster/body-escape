@@ -91,8 +91,8 @@ h2{font-size:17px;margin:0 0 10px}
       <div class="card wrap"><h2>플레이 중 <span id="nPlay" class="muted"></span></h2><table><thead><tr>
         <th>학생</th><th>현재 방</th><th>경과 시간</th><th></th>
       </tr></thead><tbody id="rows"></tbody></table></div>
-      <div class="card wrap"><h2>탈출 완료 <span id="nDone" class="muted"></span></h2><table><thead><tr>
-        <th>학생</th><th>총 소요 시간</th><th>플레이 시간</th><th>힌트</th><th>오답</th><th>화면 이탈</th><th></th>
+      <div class="card wrap"><h2>탈출 완료 <span id="nDone" class="muted"></span></h2><p class="muted" style="margin:-4px 0 8px;font-size:13px">총 소요 시간 = 플레이 시간 + 힌트 가산 (기믹마다 첫 힌트만 쓰면 +2분, 두 번째 힌트까지 쓰면 +5분)</p><table><thead><tr>
+        <th>학생</th><th>총 소요 시간</th><th>플레이 시간</th><th>힌트 (가산)</th><th>오답</th><th>화면 이탈</th><th></th>
       </tr></thead><tbody id="doneRows"></tbody></table></div>
     </div>
     <div class="card wrap" id="viewB" hidden><table><thead><tr>
@@ -223,7 +223,7 @@ function render(d) {
     if (isOpen) {
       const head = document.createElement('div'); head.style.cssText = 'margin:2px 0 8px;line-height:1.9';
       const ln = t => { const d = document.createElement('div'); d.textContent = t; head.appendChild(d); };
-      ln('진행 기믹: ' + (p.gk || '-')); ln('힌트 ' + p.hints + '개 사용 · 오답 ' + p.miss + '회');
+      ln('진행 기믹: ' + (p.gk || '-')); ln('힌트 ' + p.hints + '개 사용 (가산 +' + fmt(p.pen || 0) + ') · 오답 ' + p.miss + '회');
       const stl = document.createElement('div'), tag = (t, c) => { const a = document.createElement('span'); a.className = 'tag ' + c; a.style.marginRight = '4px'; a.textContent = t; stl.appendChild(a); };
       if (lostOf(p)) tag('접속 끊김 ' + fmt((now - p.last) / 1000), 'bad'); else tag('진행 중', 'muted');
       if (p.late) tag('늦은 입장', 'warn'); if (p.adm) tag('관리자 모드 사용', 'warn');
@@ -236,7 +236,7 @@ function render(d) {
   const dr = $('#doneRows'); dr.replaceChildren();
   if (!cleared.length) empty(dr, 7, '아직 탈출한 학생이 없습니다.');
   cleared.sort((x, y) => x.total - y.total).forEach((p, ix) => {
-    const tr = document.createElement('tr'); rankCell(tr, ix, who(p)); cell(tr, fmt(p.total), 'ok'); cell(tr, fmt(p.play)); cell(tr, String(p.hints)); cell(tr, String(p.miss));
+    const tr = document.createElement('tr'); rankCell(tr, ix, who(p)); cell(tr, fmt(p.total), 'ok'); cell(tr, fmt(p.play)); cell(tr, p.hints + ' (+' + fmt(p.pen || 0) + ')'); cell(tr, String(p.miss));
     cell(tr, p.away ? p.away + '회 · ' + fmt(p.awayMs / 1000) : '0', p.away ? 'warn' : '');
     const t = cell(tr, ''); if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.textContent = '관리자 모드 사용'; t.appendChild(a); }
     { const tdb = document.createElement('td'); tdb.appendChild(editBtn(p)); tdb.appendChild(resetBtn(p)); tr.appendChild(tdb); } dr.appendChild(tr);
@@ -280,8 +280,8 @@ const classLabel = () => lastD ? [...new Set(lastD.players.map(p => p.cls))].sor
 $('#csvBtn').onclick = () => {
   if (!lastD) { alert('먼저 연결해 주세요.'); return; }
   const P = lastD.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num);
-  const H = ['반', '번호', '이름', '현재 방', '탈출', '총 소요(초)', '플레이(초)', '힌트', '오답', '화면 이탈(회)', '이탈 시간(초)', '재접속', '다른 기기 시도', '늦은 입장', '관리자 모드'];
-  const rows = [H].concat(P.map(p => [p.cls, p.num, p.name, p.room, p.clear ? 'O' : '', p.total, p.play, p.hints, p.miss, p.away, Math.round(p.awayMs / 1000), p.rejoin, p.reject, p.late ? 'O' : '', p.adm ? 'O' : '']));
+  const H = ['반', '번호', '이름', '현재 방', '탈출', '총 소요(초)', '플레이(초)', '힌트', '힌트 가산(초)', '오답', '화면 이탈(회)', '이탈 시간(초)', '재접속', '다른 기기 시도', '늦은 입장', '관리자 모드'];
+  const rows = [H].concat(P.map(p => [p.cls, p.num, p.name, p.room, p.clear ? 'O' : '', p.total, p.play, p.hints, p.pen || 0, p.miss, p.away, Math.round(p.awayMs / 1000), p.rejoin, p.reject, p.late ? 'O' : '', p.adm ? 'O' : '']));
   rows.push([], ['명예의 전당'], ['순위', '반', '번호', '이름', '총 소요(초)', '플레이(초)', '힌트']);
   lastD.hall.forEach((h, i) => rows.push([i + 1, h.cls, h.num, h.name, h.total, h.play, h.hints]));
   const text = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
