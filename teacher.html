@@ -60,6 +60,7 @@ h2{font-size:17px;margin:0 0 10px}
         <button class="pri" id="start" type="button">일괄 시작 (12초 뒤 모두 동시에)</button>
         <button id="endAll" type="button" style="border-color:var(--bad);color:var(--bad)">전체 완료 (10초 뒤 모두 종료 → 설문)</button>
         <button id="endCancel" type="button" hidden>종료 취소</button>
+        <button id="blBtn" type="button" title="켜면 학생 화면에서 뒤로가기·새로고침·닫기를 막거나 경고해요">뒤로가기 잠금: 꺼짐</button>
       </div>
       <div class="row" style="margin-top:10px">
         <span class="muted">명단</span>
@@ -188,6 +189,8 @@ function render(d) {
     ph.textContent = '곧 시작'; sb.hidden = true; const local = Date.now() + (st0 - now);
     const up = () => { const l = Math.ceil((local - Date.now()) / 1000); sub.textContent = l > 0 ? l + '초 뒤 모든 학생이 동시에 시작합니다.' : '시작!'; }; up(); tick = setInterval(up, 250);
   } else { ph.textContent = '수업 진행 중'; sub.textContent = '시작 시각 ' + new Date(Date.now() + (st0 - now)).toLocaleTimeString('ko-KR') + ' · 경과 ' + fmt((now - st0) / 1000); sb.hidden = true; }
+  /* 뒤로가기 잠금 상태 */
+  blState = d.backLock ? 1 : 0; { const b = $('#blBtn'); b.textContent = '뒤로가기 잠금: ' + (blState ? '켜짐' : '꺼짐'); b.style.cssText = blState ? 'background:#1d7a4c;border-color:#1d7a4c;color:#fff' : ''; }
   /* 전체 완료(종료) 상태 */
   { const ea = d.endAt || 0; $('#endAll').hidden = !!ea; $('#endCancel').hidden = !(ea && ea > now);
     if (ea) { sb.hidden = true; const le = ea - now;
@@ -285,7 +288,7 @@ $('#go').onclick = () => {
 };
 $('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#go').click(); });
 /* 탭: 대기실 / 진행 중 / 명예의 전당 */
-let curTab = '', lastStarted = null, lastBase = null;
+let curTab = '', lastStarted = null, lastBase = null, blState = 0;
 setInterval(() => { if (!lastBase) return; const sn = lastBase.now + (Date.now() - lastBase.at); document.querySelectorAll('.lostDur').forEach(e => { const txt = '미접속 ' + fmt((sn - +e.dataset.last) / 1000); e.textContent = e.tagName === 'SPAN' && e.parentElement && e.parentElement.classList.contains('chip') ? ' · ' + txt : txt; }); }, 1000); /* 미접속 시간을 1초마다 늘려 보여 준다 */
 function showTab(k) { curTab = k; ['W', 'A', 'B', 'H'].forEach(x => { $('#view' + x).hidden = x !== k; $('#tab' + x).className = x === k ? 'on' : ''; }); }
 $('#tabW').onclick = () => showTab('W'); $('#tabA').onclick = () => showTab('A'); $('#tabB').onclick = () => showTab('B'); $('#tabH').onclick = () => { showTab('H'); if (!arListed) arRefreshList(); };
@@ -327,6 +330,7 @@ $('#archiveBtn').onclick = async () => {
 $('#resetAll').onclick = () => { if (confirm('⚠ 전체 초기화입니다. 모든 학생의 진행 기록, 대기 명단, 시작 시각을 지웁니다.\n한 학생만 다시 시작하게 하려면 취소하고, 그 학생 줄의 [초기화] 버튼을 쓰세요.\n\n정말 모든 학생을 초기화할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
 $('#start').onclick = () => { if (confirm('지금 일괄 시작할까요? 약 12초 뒤 대기 중인 모든 학생이 동시에 시작합니다.')) { $('#start').disabled = true; act_({ a:'start' }); } };
 $('#endAll').onclick = () => { if (confirm('전체 완료할까요?\n10초 뒤 모든 학생의 방탈출이 종료되고, 설문조사 버튼 화면이 나타납니다.')) act_({ a:'endAll' }); };
+$('#blBtn').onclick = () => { const on = blState ? 0 : 1; if (on && !confirm('뒤로가기 잠금을 켤까요?\n학생 화면에서 뒤로가기가 막히고, 새로고침·닫기를 하려 하면 경고가 떠요. (10초 안에 모든 학생에게 적용돼요)')) return; act_({ a:'backLock', on }); };
 $('#endCancel').onclick = () => act_({ a:'endCancel' });
 $('#rSave').onclick = () => { rosterShown = false; act_({ a:'roster', cls:+$('#rCls').value || 0, n:+$('#rN').value || 0, skip:$('#rSkip').value }); };
 $('#clearHall').onclick = () => { if (confirm('명예의 전당 기록을 모두 지울까요? 되돌릴 수 없습니다.')) act_({ a:'clearHall' }); };
