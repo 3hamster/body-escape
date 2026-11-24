@@ -305,8 +305,8 @@ const classLabel = () => lastD ? [...new Set(lastD.players.map(p => p.cls))].sor
 $('#csvBtn').onclick = () => {
   if (!lastD) { alert('먼저 연결해 주세요.'); return; }
   const P = lastD.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num);
-  const H = ['반', '번호', '이름', '현재 방', '탈출', '총 소요(초)', '플레이(초)', '힌트', '힌트 가산(초)', '오답', '화면 이탈(회)', '이탈 시간(초)', '재접속', '다른 기기 시도', '늦은 입장', '관리자 모드'];
-  const rows = [H].concat(P.map(p => [p.cls, p.num, p.name, p.room, p.clear ? 'O' : '', p.total, p.play, p.hints, p.pen || 0, p.miss, p.away, Math.round(p.awayMs / 1000), p.rejoin, p.reject, p.late ? 'O' : '', p.adm ? 'O' : '']));
+  const H = ['반', '번호', '이름', '현재 방', '탈출', '누적 시간(초)', '총 소요(초)', '플레이(초)', '힌트', '힌트 가산(초)', '오답', '화면 이탈(회)', '이탈 시간(초)', '재접속', '다른 기기 시도', '늦은 입장', '관리자 모드'];
+  const rows = [H].concat(P.map(p => [p.cls, p.num, p.name, p.room, p.clear ? 'O' : '', p.clear ? p.play : Math.max(0, Math.round((lastD.now - Math.max(lastD.startAt || 0, p.start || 0)) / 1000)), p.total, p.play, p.hints, p.pen || 0, p.miss, p.away, Math.round(p.awayMs / 1000), p.rejoin, p.reject, p.late ? 'O' : '', p.adm ? 'O' : '']));
   rows.push([], ['명예의 전당'], ['순위', '반', '번호', '이름', '총 소요(초)', '플레이(초)', '힌트']);
   lastD.hall.forEach((h, i) => rows.push([i + 1, h.cls, h.num, h.name, h.total, h.play, h.hints]));
   const text = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
@@ -397,7 +397,7 @@ async function arLoad() {
       const H = r.players[0] || [], ci = H.indexOf('반'), cs = [...new Set(r.players.slice(1).map(x => String(x[ci])).filter(x => x !== ''))].sort((a, b) => a - b), s = $('#arCls'); s.replaceChildren();
       const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '전체'; s.appendChild(o0); cs.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c + '반'; s.appendChild(o); });
       if (cs.length === 1) s.value = cs[0];
-      $('#arInfo').textContent = r.name; arRender(); arSay('불러왔어요. 위의 [반]을 바꿔 반별로 볼 수 있어요.', 'ok'); arRefreshList(true);
+      $('#arInfo').textContent = r.name; arRender(); arSay(H.includes('누적 시간(초)') ? '불러왔어요. 위의 [반]을 바꿔 반별로 볼 수 있어요.' : '불러왔어요. (이 시트는 예전 방식으로 보관되어 "누적 시간" 열이 없어요. 새로 보관하면 생겨요.)', 'ok'); arRefreshList(true);
     }
   } catch (e) { arSay('서버에 연결하지 못했어요.', 'bad'); }
   $('#arLoad').disabled = false;
