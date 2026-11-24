@@ -247,7 +247,7 @@ async function act_(o) {
   if (busy) { if (o.a !== 'dash') setTimeout(() => act_(o), 300); return; } busy = true; /* 버튼 동작은 조회가 끝난 뒤 반드시 보낸다 */
   try {
     const d = await call(o);
-    if (!d.ok) { say(d.err === 'pass' ? '비밀번호가 맞지 않습니다. (스크립트의 TEACHER_PASS를 바꿨는지도 확인해 주세요.)' : '요청을 처리하지 못했습니다.', 'bad'); stop(); }
+    if (!d.ok) { if (d.err === 'pass') { say('비밀번호가 맞지 않습니다. (스크립트의 TEACHER_PASS를 바꿨는지도 확인해 주세요.)', 'bad'); stop(); } else { say('서버가 잠시 응답하지 못했어요' + (d.msg ? ' (' + d.msg + ')' : '') + '. 멈추지 않고 5초마다 자동으로 다시 시도합니다. 화면의 데이터는 마지막으로 받은 것입니다.', 'warn'); } } /* 일시적인 오류로 갱신이 멈추지 않게 */
     else { render(d); $('#live').hidden = false; say('마지막으로 받아 온 시각 ' + new Date().toLocaleTimeString('ko-KR'), 'muted'); }
   } catch (e) { say('서버에 연결하지 못했습니다. 주소와 인터넷 연결을 확인해 주세요. 5초 뒤 다시 시도합니다.', 'bad'); }
   busy = false;
