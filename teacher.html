@@ -75,6 +75,8 @@ h2{font-size:17px;margin:0 0 10px}
       <button id="tabA" type="button">진행 중</button>
       <button id="tabB" type="button">명예의 전당</button>
       <span style="flex:1"></span>
+      <button id="csvBtn" type="button">기록 내려받기 (CSV)</button>
+      <button id="archiveBtn" type="button">다른 시트에 보관</button>
       <button id="resetAll" type="button">전체 초기화 · 새 수업 시작 (모든 학생 비우기)</button>
       <button id="clearHall" type="button">명예의 전당 비우기</button>
     </div>
@@ -271,6 +273,32 @@ function drawQR(el, size) { el.replaceChildren(); if (typeof QRCode === 'undefin
 if (!drawQR($('#qrBox'), 180)) { $('#qrMsg').textContent = 'QR 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요. 주소를 직접 알려 줘도 됩니다.'; }
 $('#qrBox').onclick = () => { const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out'; const b = document.createElement('div'); b.style.cssText = 'background:#fff;padding:20px;border-radius:16px;line-height:0'; const s = Math.min(560, innerWidth - 80, innerHeight - 160); drawQR(b, Math.max(200, s)); const t = document.createElement('div'); t.textContent = STU_URL + '  ·  누르면 닫힘'; t.style.cssText = 'color:#fff;font-size:16px;word-break:break-all;text-align:center;padding:0 16px'; o.append(b, t); o.onclick = () => o.remove(); document.body.appendChild(o); };
 $('#copyUrl').onclick = async () => { try { await navigator.clipboard.writeText(STU_URL); $('#copyUrl').textContent = '복사됨'; setTimeout(() => $('#copyUrl').textContent = '주소 복사', 1500); } catch (e) { $('#qrMsg').textContent = '복사하지 못했어요. 주소를 직접 선택해 복사해 주세요.'; } };
+/* 기록 보관: CSV 내려받기 / 새 구글 시트에 사본 만들기 */
+const csvCell = v => { v = String(v == null ? '' : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const stamp = () => { const t = new Date(), z = n => String(n).padStart(2, '0'); return t.getFullYear() + z(t.getMonth() + 1) + z(t.getDate()) + '_' + z(t.getHours()) + z(t.getMinutes()); };
+const classLabel = () => lastD ? [...new Set(lastD.players.map(p => p.cls))].sort((a, b) => a - b).join('·') + '반' : '';
+$('#csvBtn').onclick = () => {
+  if (!lastD) { alert('먼저 연결해 주세요.'); return; }
+  const P = lastD.players.slice().sort((a, b) => a.cls - b.cls || a.num - b.num);
+  const H = ['반', '번호', '이름', '현재 방', '탈출', '총 소요(초)', '플레이(초)', '힌트', '오답', '화면 이탈(회)', '이탈 시간(초)', '재접속', '다른 기기 시도', '늦은 입장', '관리자 모드'];
+  const rows = [H].concat(P.map(p => [p.cls, p.num, p.name, p.room, p.clear ? 'O' : '', p.total, p.play, p.hints, p.miss, p.away, Math.round(p.awayMs / 1000), p.rejoin, p.reject, p.late ? 'O' : '', p.adm ? 'O' : '']));
+  rows.push([], ['명예의 전당'], ['순위', '반', '번호', '이름', '총 소요(초)', '플레이(초)', '힌트']);
+  lastD.hall.forEach((h, i) => rows.push([i + 1, h.cls, h.num, h.name, h.total, h.play, h.hints]));
+  const text = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type:'text/csv;charset=utf-8' })); a.download = '몸속탈출_기록_' + classLabel() + '_' + stamp() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  say('CSV 파일을 내려받았어요. (엑셀·구글 시트에서 열 수 있어요)', 'ok');
+};
+$('#archiveBtn').onclick = async () => {
+  if (!lastD) { alert('먼저 연결해 주세요.'); return; }
+  if (!confirm('현재 학생 기록과 명예의 전당을 새 구글 시트(내 드라이브)에 사본으로 보관할까요?\n원본 기록은 지워지지 않습니다. 보관 뒤 [전체 초기화]로 비우면 됩니다.')) return;
+  const b = $('#archiveBtn'); b.disabled = true; say('새 구글 시트에 보관하는 중… (10~20초)');
+  try {
+    const r = await call({ a:'archive', label:classLabel() });
+    if (r.ok) { const m = $('#msg'); m.className = 'ok'; m.replaceChildren('보관했어요 (학생 ' + r.n + '명, 명예의 전당 ' + r.hall + '명). 내 드라이브에 생성됨 → '); const l = document.createElement('a'); l.href = r.url; l.target = '_blank'; l.rel = 'noopener'; l.textContent = '보관한 시트 열기'; m.appendChild(l); }
+    else say('보관하지 못했어요' + (r.msg ? ' (' + r.msg + ')' : '') + '. 잠시 뒤 다시 눌러 주세요. 급하면 [기록 내려받기 (CSV)]를 쓰세요.', 'bad');
+  } catch (e) { say('보관 요청이 끝나지 않았어요. 잠시 뒤 다시 시도하거나 [기록 내려받기 (CSV)]를 쓰세요.', 'bad'); }
+  b.disabled = false;
+};
 $('#resetAll').onclick = () => { if (confirm('⚠ 전체 초기화입니다. 모든 학생의 진행 기록, 대기 명단, 시작 시각을 지웁니다.\n한 학생만 다시 시작하게 하려면 취소하고, 그 학생 줄의 [초기화] 버튼을 쓰세요.\n\n정말 모든 학생을 초기화할까요?\n(명예의 전당 기록과 명단 설정은 그대로 남습니다.)')) act_({ a:'resetAll' }); };
 $('#start').onclick = () => { if (confirm('지금 일괄 시작할까요? 약 12초 뒤 대기 중인 모든 학생이 동시에 시작합니다.')) { $('#start').disabled = true; act_({ a:'start' }); } };
 $('#endAll').onclick = () => { if (confirm('전체 완료할까요?\n10초 뒤 모든 학생의 방탈출이 종료되고, 설문조사 버튼 화면이 나타납니다.')) act_({ a:'endAll' }); };
