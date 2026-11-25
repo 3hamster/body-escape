@@ -107,7 +107,7 @@ h2{font-size:17px;margin:0 0 10px}
         <p class="muted" style="margin:0 0 8px;font-size:13px">[다른 시트에 보관]으로 만든 시트의 기록을 반별로 볼 수 있어요. 목록에서 고르거나 시트 주소를 붙여 넣으세요.</p>
         <div class="row"><select id="arSel" style="flex:1;min-width:220px;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select><button id="arRefresh" type="button">목록 새로고침</button></div>
         <div class="row" style="margin-top:8px"><input id="arUrl" type="text" placeholder="또는 보관 시트 주소(https://docs.google.com/spreadsheets/d/…)" autocomplete="off" style="flex:1;min-width:220px"><button class="pri" id="arLoad" type="button">불러오기</button></div>
-        <div class="row" style="margin-top:10px"><span class="muted">반</span><select id="arCls" style="font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select><span id="arInfo" class="muted"></span><span style="flex:1"></span><button class="sm" id="arCsv" type="button">이 화면 CSV</button></div>
+        <div class="row" style="margin-top:10px"><span class="muted">반</span><select id="arCls" style="font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></select><span id="arInfo" class="muted"></span><span style="flex:1"></span><button class="sm" id="arRestore" type="button" title="선택한 반의 기록을 서버로 되돌려 학생들이 저장된 위치부터 이어서 시작하게 해요">이 반 기록으로 수업 이어가기</button><button class="sm" id="arCsv" type="button">이 화면 CSV</button></div>
         <p id="arMsg" class="muted" style="margin:8px 0 0;min-height:1.2em"></p>
       </div>
       <div class="card wrap"><h2>학생 기록 <span id="arN" class="muted"></span></h2><table><thead id="arHead"></thead><tbody id="arBody"></tbody></table></div>
@@ -231,7 +231,7 @@ function render(d) {
       td.append(rk, nm, no); tr.appendChild(td); if (top) tr.style.background = MB[ix]; }
     const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
     { const g = document.createElement('span'); g.textContent = p.gk || '-'; g.title = '마우스를 올리면 보여요'; g.style.cssText = 'margin-left:10px;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;filter:blur(6px);transition:filter .15s;cursor:default;user-select:none'; const show = on => { g.style.filter = on ? 'none' : 'blur(6px)'; }; g.onmouseenter = () => show(true); g.onmouseleave = () => show(false); g.onclick = () => show(g.style.filter !== 'none'); rc.appendChild(g); } /* 진행 기믹: 평소엔 흐리게, 마우스를 올리면 보인다 */
-    { const td = cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000)); if (lostOf(p)) { td.appendChild(document.createTextNode(' ')); const lt = document.createElement('span'); lt.className = 'tag bad lostDur'; lt.dataset.last = p.last; lt.textContent = '미접속 ' + fmt((now - p.last) / 1000); td.appendChild(lt); tr.style.background = 'rgba(179,38,30,.10)'; } } /* 30초 넘게 신호가 없는 학생은 미접속 시간을 표시 */ /* 입장 시각부터 경과 */
+    { const td = cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000 + (p.carry || 0))); if (lostOf(p)) { td.appendChild(document.createTextNode(' ')); const lt = document.createElement('span'); lt.className = 'tag bad lostDur'; lt.dataset.last = p.last; lt.textContent = '미접속 ' + fmt((now - p.last) / 1000); td.appendChild(lt); tr.style.background = 'rgba(179,38,30,.10)'; } } /* 30초 넘게 신호가 없는 학생은 미접속 시간을 표시 */ /* 입장 시각부터 경과 */
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
     db.onclick = () => { openDetail.has(p.key) ? openDetail.delete(p.key) : openDetail.add(p.key); render(lastD); }; if (p.allow) { const t = document.createElement('span'); t.className = 'tag ok'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가됨'; tdb.appendChild(t); } else if (p.req) { const t = document.createElement('span'); t.className = 'tag bad'; t.style.marginRight = '6px'; t.textContent = '새 기기 허가 요청'; tdb.appendChild(t); }
     { const rb = resetBtn(p); rb.style.marginRight = '4px'; tdb.appendChild(rb); } tdb.appendChild(db); /* 학생별 초기화 */
@@ -393,7 +393,7 @@ async function arLoad() {
     const r = await call({ a:'archLoad', id });
     if (!r.ok) { arSay(r.err === 'badid' ? '시트 주소가 올바르지 않아요.' : r.err === 'open' ? '시트를 열 수 없어요. 이 서버를 만든 계정의 시트인지 확인해 주세요.' : r.err === 'format' ? '[다른 시트에 보관]으로 만든 시트가 아니에요. ("학생 기록" 탭이 필요해요)' : '불러오지 못했어요' + (r.msg ? ' (' + r.msg + ')' : '') + '.', 'bad'); }
     else {
-      AR = { name:r.name, players:r.players, hall:r.hall };
+      AR = { name:r.name, players:r.players, hall:r.hall, id };
       const H = r.players[0] || [], ci = H.indexOf('반'), cs = [...new Set(r.players.slice(1).map(x => String(x[ci])).filter(x => x !== ''))].sort((a, b) => a - b), s = $('#arCls'); s.replaceChildren();
       const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '전체'; s.appendChild(o0); cs.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c + '반'; s.appendChild(o); });
       if (cs.length === 1) s.value = cs[0];
@@ -402,6 +402,19 @@ async function arLoad() {
   } catch (e) { arSay('서버에 연결하지 못했어요.', 'bad'); }
   $('#arLoad').disabled = false;
 }
+$('#arRestore').onclick = async () => {
+  if (!url) { arSay('먼저 위에서 서버에 연결해 주세요.', 'warn'); return; }
+  if (!AR || !AR.id) { arSay('먼저 기록을 불러와 주세요.', 'warn'); return; }
+  const cls = $('#arCls').value; if (!cls) { arSay('이어갈 반을 위의 [반]에서 먼저 골라 주세요.', 'warn'); return; }
+  if (!confirm(cls + '반 학생 기록을 서버로 복원할까요?\n학생들이 저장된 방·위치·힌트·시간부터 이어서 시작해요.\n지금 서버에 있는 ' + cls + '반 학생 기록은 이 보관본으로 덮어써져요.')) return;
+  const b = $('#arRestore'); b.disabled = true; arSay('복원하는 중… (10~20초)');
+  try {
+    const r = await call({ a:'archRestore', id:AR.id, cls:+cls });
+    if (r.ok) { arSay(cls + '반 ' + r.restored + '명을 복원했어요. 학생이 같은 반·번호·이름으로 입장하면 저장된 위치부터 이어서 시작해요.', 'ok'); render(r); }
+    else arSay(r.err === 'open' ? '시트를 열 수 없어요.' : r.err === 'format' ? '복원할 수 있는 보관 시트가 아니에요.' : '복원하지 못했어요' + (r.msg ? ' (' + r.msg + ')' : '') + '. 잠시 뒤 다시 눌러 주세요.', 'bad');
+  } catch (e) { arSay('복원 요청이 끝나지 않았어요. 잠시 뒤 다시 시도해 주세요.', 'bad'); }
+  b.disabled = false;
+};
 $('#arRefresh').onclick = arRefreshList; $('#arLoad').onclick = arLoad; $('#arCls').onchange = arRender;
 $('#arSel').onchange = () => { if ($('#arSel').value) $('#arUrl').value = ''; };
 $('#arCsv').onclick = () => { if (!AR || !AR.view) { arSay('먼저 기록을 불러와 주세요.', 'warn'); return; } const a = document.createElement('a'); const rows = [AR.view.H].concat(AR.view.rows); a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(csvCell).join(',')).join('\r\n')], { type:'text/csv;charset=utf-8' })); a.download = '보관기록_' + (AR.name || '') + '_' + ($('#arCls').value ? $('#arCls').value + '반_' : '') + stamp() + '.csv'; document.body.appendChild(a); a.click(); a.remove(); };
