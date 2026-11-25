@@ -3333,7 +3333,7 @@ function cpLoad(r, me) { /* 같은 학생·같은 수업의 저장본(이 기기
   const L = [];
   try { L.push(JSON.parse(localStorage.getItem('be_cp') || 'null')); } catch (e) {}
   try { if (r.cp) L.push(JSON.parse(r.cp)); } catch (e) {}
-  const ok = L.filter(cp => cp && cp.v === 1 && cp.u === me.cls + '-' + me.num && NET.startAt && cp.st === NET.startAt && cp.room >= r.room && cp.room <= r.room + 1 && (r.hints + r.miss) >= cp.hs).sort((x, y) => (y.ts || 0) - (x.ts || 0));
+  const ok = L.filter(cp => cp && cp.v === 1 && cp.u === me.cls + '-' + me.num && (cp.rs || (NET.startAt && cp.st === NET.startAt)) && cp.room >= r.room).sort((x, y) => (y.ts || 0) - (x.ts || 0));
   return ok[0] || null;
 }
 function cpApply(cp) {
@@ -3353,7 +3353,7 @@ function cpApply(cp) {
   document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive:false });
   document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive:false }); /* Ctrl+마우스 휠·터치패드 핀치 확대 막기 */
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', 'Add', 'Subtract'].includes(e.key)) e.preventDefault(); }); /* Ctrl/⌘ + 또는 - 확대·축소 막기 */
-  const vv = window.visualViewport, dpr0 = window.devicePixelRatio; let ban = null, lastTry = 0, span = null;
+  const vv = window.visualViewport, dpr0 = window.devicePixelRatio; let ban = null, span = null;
   function resetZoom() { /* 화면 배율을 1로 되돌린다(휴대폰·태블릿). 컴퓨터의 브라우저 확대는 Ctrl+0 */
     const m = document.querySelector('meta[name=viewport]');
     if (m) { const keep = m.content; m.content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no'; setTimeout(() => { m.content = keep; }, 300); }
@@ -3366,7 +3366,6 @@ function cpApply(cp) {
   };
   const chk = () => {
     const z = (vv && vv.scale) || 1, dz = window.devicePixelRatio / dpr0, bad = z > 1.03 || Math.abs(dz - 1) > .03;
-    if (bad && z > 1.03 && Date.now() - lastTry > 1500) { lastTry = Date.now(); resetZoom(); } /* 확대되면 먼저 자동으로 되돌려 본다 */
     if (bad && !ban) {
       ban = document.createElement('div'); ban.style.cssText = 'position:fixed;z-index:100001;background:rgba(0,0,0,.9);color:#fff;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;width:max-content;max-width:90vw;text-align:center';
       span = document.createElement('span'); span.textContent = '화면이 확대·축소되어 있어요. 컴퓨터는 Ctrl+0(맥은 ⌘0), 휴대폰은 아래 버튼을 눌러 보세요.';
