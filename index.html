@@ -2907,7 +2907,7 @@ function startScreen() {
 
 /* ================= 수업 기록 (구글 시트) ================= */
 const NET_URL = 'https://script.google.com/macros/s/AKfycbzBo5YGuh_8NfPZmz1VJ_Rs9qRFZzqxGMdMmb0cTnVWUvf3vsifeqC_FGRTBzJdhE8/exec'; /* ← 선생님: 구글 시트 웹 앱 주소(…/exec)를 따옴표 안에 붙여 넣으세요. 비워 두면 기록 없이 동작합니다. */
-const NET = { on:!!NET_URL, me:null, live:false, phase:'', sentH:0, sentM:0, sentR:0, away:0, awayMs:0, hidAt:0, busy:false, wantClear:false, lastSend:0, res:null, off:0, startAt:0, onStart:null, onGone:null, endAt:0, endWatch:false, ended:false, endTm:0 };
+const NET = { on:!!NET_URL, me:null, live:false, phase:'', sentH:0, sentM:0, sentR:0, away:0, awayMs:0, hidAt:0, busy:false, wantClear:false, lastSend:0, res:null, off:0, startAt:0, onStart:null, onGone:null, endAt:0, endWatch:false, ended:false, endTm:0, lastBeat:0 };
 const NET_BEAT = 10000; /* 학생 화면이 시트를 확인하는 주기: 시작 신호 확인과 접속 유지 신호 모두 10초 */
 function netTok() { /* 처음 들어온 기기·브라우저에 묶는 열쇠: 같은 브라우저로 다시 들어오면 허가 없이 이어진다 (저장소가 막혀도 쿠키·세션에 한 번 더 보관) */
   let t = ''; try { t = localStorage.getItem('be_tok') || ''; } catch (e) {}
@@ -2920,7 +2920,7 @@ function netTok() { /* 처음 들어온 기기·브라우저에 묶는 열쇠: �
   return t;
 }
 async function netPost(o) { /* 응답의 서버 시각으로 이 기기 시계와의 차이를 잰다 */
-  const t0 = Date.now(), r = await (await fetch(NET_URL, { method:'POST', body:JSON.stringify(o) })).json(), t1 = Date.now();
+  const t0 = Date.now(), ac = new AbortController(), to = setTimeout(() => ac.abort(), 20000); let r; try { r = await (await fetch(NET_URL, { method:'POST', body:JSON.stringify(o), signal:ac.signal })).json(); } finally { clearTimeout(to); } const t1 = Date.now();
   if (r && r.now && (NET.rtt == null || t1 - t0 <= NET.rtt + 150)) { NET.rtt = Math.min(NET.rtt == null ? 1e9 : NET.rtt, t1 - t0); NET.off = r.now - (t0 + t1) / 2; } /* 왕복이 빨랐던 응답일수록 시계 차이가 정확하다 */
   return r;
 }
@@ -2966,7 +2966,7 @@ async function netFlush() {
   const d = { a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:play ? S.room : 1, hint:play ? Math.max(0, S.hintN - NET.sentH) : 0, miss:play ? Math.max(0, S.mistakes - NET.sentM) : 0, away:play ? NET.away : 0, awayMs:play ? NET.awayMs : 0, hmap:play ? hmapStr() : null };
   const gkNow = play ? curGk() : ''; if (play && gkNow !== NET.sentG) d.gk = gkNow; /* 현재 진행 중인 기믹을 선생님 화면에 알린다 */
   if (admin) d.adm = 1; if (NET.wantClear) d.clear = 1;
-  NET.busy = true; NET.lastSend = Date.now();
+  NET.busy = true; NET.lastSend = Date.now(); NET.lastBeat = Date.now();
   try {
     const r = await netPost(d);
     if (r.ok) {
@@ -2976,15 +2976,20 @@ async function netFlush() {
       if (d.clear && r.cleared) { NET.wantClear = false; NET.res = r; netShowResult(); }
       if (NET.phase === 'wait' && r.startAt && NET.onStart) { NET.startAt = r.startAt; NET.onStart(); }
     } else if (r.err === 'taken' || r.err === 'gone') { NET.live = false; NET.endWatch = false; if (NET.onGone) NET.onGone(); else toast('선생님이 기록을 초기화했어요. 새로 고친 뒤 다시 입장해 주세요.'); }
-  } catch (e) {}
+  } catch (e) { NET.lastSend = Date.now() - NET_BEAT + 3000; } /* 실패하면 10초를 기다리지 말고 3초 뒤 다시 보낸다 */
   NET.busy = false;
 }
 setInterval(() => { /* 바뀐 것이 있으면 곧바로, 없어도 10초마다 접속 유지 신호를 보낸다 */
   if (!(NET.live || NET.endWatch)) return;
   const dirty = NET.phase === 'play' && (S.room !== NET.sentR || curGk() !== NET.sentG || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
   if (dirty || Date.now() - NET.lastSend >= NET_BEAT) netFlush();
+  if (NET.busy && NET.me && Date.now() - NET.lastBeat >= NET_BEAT) { /* 서버가 바빠 앞선 요청이 오래 걸리는 동안에도 "접속 중" 신호는 끊기지 않게 따로 보낸다 */
+    NET.lastBeat = Date.now(); netPost({ a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:NET.sentR || 1, hint:0, miss:0, away:0, awayMs:0 }).catch(() => {});
+  }
 }, 1000);
+window.addEventListener('online', () => { if (NET.live || NET.endWatch) netFlush(); });
 document.addEventListener('visibilitychange', () => { /* 5초 넘게 화면을 벗어나면 이탈 1회 (게임이 시작된 뒤에만) */
+  if (!document.hidden && (NET.live || NET.endWatch)) netFlush(); /* 돌아오면 바로 "접속 중" 신호 */
   if (!NET.live || NET.phase !== 'play') return;
   if (document.hidden) { NET.hidAt = Date.now(); return; }
   if (NET.hidAt) { const dt = Date.now() - NET.hidAt; NET.hidAt = 0; if (dt >= 5000) { NET.away++; NET.awayMs += dt; netFlush(); } }
