@@ -50,7 +50,6 @@ h2{font-size:17px;margin:0 0 10px}
       <button class="pri" id="go" type="button">연결</button>
     </div>
     <p id="msg" class="muted"></p>
-    <label class="muted" style="font-size:13px"><input type="checkbox" id="alertSnd" checked> 이탈 알림 소리 (30초 이상 화면을 벗어나면 알려요)</label>
   </div>
 
   <div id="live" hidden>
@@ -91,7 +90,7 @@ h2{font-size:17px;margin:0 0 10px}
       <div class="card"><h2>대기 중 <span id="nWait" class="muted"></span></h2><div id="waitList" class="chips"></div></div>
     </div>
     <div id="viewA" hidden>
-      <div class="card" id="lostPanel" hidden style="border-color:var(--bad)"><h2 class="bad">⚠ 미접속 중인 학생 <span id="nLost" class="muted"></span></h2><div id="lostList" class="chips"></div><p class="muted" style="margin:8px 0 0;font-size:13px">30초 넘게 신호가 없는 학생이에요. 화면을 벗어났거나 연결이 끊겼을 수 있어요. 돌아오면 자동으로 사라져요.</p></div>
+      <div class="card" id="lostPanel" hidden style="border-color:var(--bad)"><h2 class="bad">⚠ 미접속 중인 학생 <span id="nLost" class="muted"></span></h2><div id="lostList" class="chips"></div><p class="muted" style="margin:8px 0 0;font-size:13px">1분 넘게 신호가 없는 학생이에요. 화면을 벗어났거나 연결이 끊겼을 수 있어요. 돌아오면 자동으로 사라져요.</p></div>
       <div class="card wrap"><h2>플레이 중 <span id="nPlay" class="muted"></span></h2><table><thead><tr>
         <th>학생</th><th>현재 방</th><th>경과 시간</th><th></th>
       </tr></thead><tbody id="rows"></tbody></table></div>
@@ -130,7 +129,7 @@ async function call(o) { /* 응답이 오래 안 오면 포기하고 다음 새�
   try { const r = await fetch(url, { method:'POST', body:JSON.stringify(Object.assign({ pass }, o)), signal:ac.signal }); return await r.json(); } finally { clearTimeout(to); }
 }
 function cell(tr, text, cls) { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.appendChild(td); return td; }
-const LOST = 30000; /* 접속 유지 신호가 30초 넘게 끊기면 접속 끊김 */
+const LOST = 60000; /* 접속 유지 신호가 1분 넘게 끊기면 미접속(접속 끊김) */
 let rosterShown = false, tick = null;
 /* ===== 진행도 순위 + 탈출 성공 폭죽 ===== */
 const GK_ORDER = ['시약보관함 방향자물쇠','시약보관함 침용액','가래떡 (녹이기 전)','가래떡 (녹이기 후)','출구 비밀번호','벽에 붙은 숫자 종이','적혈구 사용','노트의 힌트(신조어)','탈출구 방향열쇠','세그먼트','움직이는 책장 (요소 빼내기)','전자현미경 및 요소와 포도당 회수','세뇨관 워터슬라이드','요소배출장치','안쪽 문의 자물쇠','고무풍선 줍기','왼쪽문','오른쪽 문'];
@@ -346,6 +345,7 @@ function showAlert(text, kind) {
   refreshAlertTitle(); beep();
 }
 function checkAway(d) {
+  return; /* 빨간 알림은 쓰지 않는다: 미접속 학생은 진행 중 탭 위쪽 명단으로만 보여 준다 */
   const first = awaySeen === null; if (first) { awaySeen = new Set(); lostSeen = new Set(); }
   d.players.forEach(p => {
     const who = p.cls + '반 ' + p.num + '번 ' + p.name;
