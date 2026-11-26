@@ -2928,6 +2928,8 @@ async function netPost(o) { /* 응답의 서버 시각으로 이 기기 시계�
   return r;
 }
 const netLocal = (serverT) => serverT - NET.off; /* 서버 시각 → 이 기기 시각 */
+/* 지금 방에서 클리어한 기믹 수 (선생님 화면 순위용). 세뇨관·배출장치는 끝난 뒤 다음 단계로 넘어간 것으로 센다 */
+function gcNow() { try { return GIMMICKS.filter(g => g.r === S.room && (g.k === 'r3slide' ? S.level >= 4 : g.k === 'r3urea' ? S.level >= 5 : g.done())).length; } catch (e) { return 0; } }
 function curGk() { try { const L = GIMMICKS.filter(x => x.r === S.room && x.when() && !x.done()).map(x => x.name); return L.length ? L.join(' / ') : '탐색 중'; } catch (e) { return '탐색 중'; } }
 /* 뒤로가기 잠금: 학생이 직접 켜면 뒤로가기를 막고, 새로고침·닫기는 경고한다 (브라우저가 허용하는 범위에서). 선택은 이 기기에 기억된다 */
 let blOn = false;
@@ -2967,7 +2969,7 @@ function netShowEnd() { /* 게임을 멈추고 설문 안내 화면을 덮는다
 async function netFlush() {
   if (!(NET.live || NET.endWatch) || NET.busy) return;
   const play = NET.phase === 'play';
-  const d = { a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:play ? S.room : 1, hint:play ? Math.max(0, S.hintN - NET.sentH) : 0, miss:play ? Math.max(0, S.mistakes - NET.sentM) : 0, away:play ? NET.away : 0, awayMs:play ? NET.awayMs : 0, hmap:play ? hmapStr() : null };
+  const d = { a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:play ? S.room : 1, hint:play ? Math.max(0, S.hintN - NET.sentH) : 0, miss:play ? Math.max(0, S.mistakes - NET.sentM) : 0, away:play ? NET.away : 0, awayMs:play ? NET.awayMs : 0, hmap:play ? hmapStr() : null, gc:play ? gcNow() : null };
   const gkNow = play ? curGk() : ''; if (play && gkNow !== NET.sentG) d.gk = gkNow; /* 현재 진행 중인 기믹을 선생님 화면에 알린다 */
   if (admin) d.adm = 1; if (NET.wantClear) d.clear = 1;
   NET.busy = true; NET.lastSend = Date.now(); NET.lastBeat = Date.now();
@@ -2976,7 +2978,7 @@ async function netFlush() {
     if (r.ok) {
       netEndCheck(r);
       if (r.cls && NET.me) { NET.me.cls = r.cls; NET.me.num = r.num; NET.me.name = r.name || NET.me.name; } /* 선생님이 번호를 고쳐도 따라간다 */
-      NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; if (d.gk != null) NET.sentG = d.gk; NET.away -= d.away; NET.awayMs -= d.awayMs;
+      NET.sentH += d.hint; NET.sentM += d.miss; NET.sentR = d.room; if (d.gc != null) NET.sentGc = d.gc; if (d.gk != null) NET.sentG = d.gk; NET.away -= d.away; NET.awayMs -= d.awayMs;
       if (d.clear && r.cleared) { NET.wantClear = false; NET.res = r; netShowResult(); }
       if (NET.phase === 'wait' && r.startAt && NET.onStart) { NET.startAt = r.startAt; NET.onStart(); }
     } else if (r.err === 'taken' || r.err === 'gone') { NET.live = false; NET.endWatch = false; if (NET.onGone) NET.onGone(); else toast('선생님이 기록을 초기화했어요. 새로 고친 뒤 다시 입장해 주세요.'); }
@@ -2985,7 +2987,7 @@ async function netFlush() {
 }
 setInterval(() => { /* 바뀐 것이 있으면 곧바로, 없어도 10초마다 접속 유지 신호를 보낸다 */
   if (!(NET.live || NET.endWatch)) return;
-  const dirty = NET.phase === 'play' && (S.room !== NET.sentR || curGk() !== NET.sentG || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
+  const dirty = NET.phase === 'play' && (S.room !== NET.sentR || gcNow() !== NET.sentGc || curGk() !== NET.sentG || S.hintN !== NET.sentH || S.mistakes !== NET.sentM || NET.away > 0 || NET.wantClear);
   if (dirty || Date.now() - NET.lastSend >= NET_BEAT) netFlush();
   if (NET.busy && NET.me && Date.now() - NET.lastBeat >= NET_BEAT) { /* 서버가 바빠 앞선 요청이 오래 걸리는 동안에도 "접속 중" 신호는 끊기지 않게 따로 보낸다 */
     NET.lastBeat = Date.now(); netPost({ a:'ev', cls:NET.me.cls, num:NET.me.num, tok:NET.me.tok, room:NET.sentR || 1, hint:0, miss:0, away:0, awayMs:0 }).catch(() => {});
