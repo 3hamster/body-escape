@@ -134,7 +134,8 @@ let rosterShown = false, tick = null;
 /* ===== 진행도 순위 + 탈출 성공 폭죽 ===== */
 const GK_ORDER = ['시약보관함 방향자물쇠','시약보관함 침용액','가래떡 (녹이기 전)','가래떡 (녹이기 후)','출구 비밀번호','벽에 붙은 숫자 종이','적혈구 사용','노트의 힌트(신조어)','탈출구 방향열쇠','세그먼트','움직이는 책장 (요소 빼내기)','전자현미경 및 요소와 포도당 회수','세뇨관 워터슬라이드','요소배출장치','안쪽 문의 자물쇠','고무풍선 줍기','왼쪽문','오른쪽 문'];
 const progOf = p => { let m = -1; String(p.gk || '').split(' / ').forEach(n => { m = Math.max(m, GK_ORDER.indexOf(n.trim())); }); return p.room * 100 + m; };
-const rankCmp = (a, b) => progOf(b) - progOf(a) || a.hints - b.hints || a.miss - b.miss || a.cls - b.cls || a.num - b.num;
+/* 탈출 전 순위: ① 더 앞선 방 ② 그 방에서 클리어한 기믹 수가 많은 순 ③ 그 방에 먼저 들어온 순 (그다음 반·번호) */
+const rankCmp = (a, b) => (b.room - a.room) || ((b.gc || 0) - (a.gc || 0)) || ((a.rt || a.start || 0) - (b.rt || b.start || 0)) || a.cls - b.cls || a.num - b.num;
 let seenClear = null;
 function checkWin(players) {
   const now = new Set(players.filter(p => p.clear).map(p => p.key));
@@ -229,7 +230,7 @@ function render(d) {
       const nm = document.createElement('b'); nm.textContent = p.name; nm.style.cssText = 'font-size:' + (ix === 0 && top ? 19 : 16.5) + 'px;margin-right:8px;vertical-align:middle';
       const no = document.createElement('span'); no.textContent = p.cls + '반 ' + p.num + '번'; no.style.cssText = 'display:inline-block;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;vertical-align:middle';
       td.append(rk, nm, no); tr.appendChild(td); if (top) tr.style.background = MB[ix]; }
-    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room);
+    const rc = cell(tr, ''); const bar = document.createElement('span'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = ((p.room - 1) * 25 + 10) + '%'; bar.appendChild(fill); rc.append(bar, ROOMS[p.room] || p.room); { const cn = document.createElement('span'); cn.className = 'tag muted'; cn.style.marginLeft = '8px'; cn.textContent = '클리어 ' + (p.gc || 0) + '개'; cn.title = '이 방에서 클리어한 기믹 수'; rc.appendChild(cn); }
     { const g = document.createElement('span'); g.textContent = p.gk || '-'; g.title = '마우스를 올리면 보여요'; g.style.cssText = 'margin-left:10px;padding:1px 9px;border-radius:99px;background:#efe7dc;color:#5a4a3f;font-size:13px;font-weight:600;filter:blur(6px);transition:filter .15s;cursor:default;user-select:none'; const show = on => { g.style.filter = on ? 'none' : 'blur(6px)'; }; g.onmouseenter = () => show(true); g.onmouseleave = () => show(false); g.onclick = () => show(g.style.filter !== 'none'); rc.appendChild(g); } /* 진행 기믹: 평소엔 흐리게, 마우스를 올리면 보인다 */
     { const td = cell(tr, fmt((now - Math.max(st0, p.start || 0)) / 1000 + (p.carry || 0))); if (lostOf(p)) { td.appendChild(document.createTextNode(' ')); const lt = document.createElement('span'); lt.className = 'tag bad lostDur'; lt.dataset.last = p.last; lt.textContent = '미접속 ' + fmt((now - p.last) / 1000); td.appendChild(lt); tr.style.background = 'rgba(179,38,30,.10)'; } } /* 30초 넘게 신호가 없는 학생은 미접속 시간을 표시 */ /* 입장 시각부터 경과 */
     const isOpen = openDetail.has(p.key), tdb = cell(tr, ''), db = document.createElement('button'); db.className = 'sm'; db.type = 'button'; db.textContent = isOpen ? '접기' : '세부확인';
@@ -256,7 +257,7 @@ function render(d) {
   /* 3) 탈출 완료 */
   const dr = $('#doneRows'); dr.replaceChildren();
   if (!cleared.length) empty(dr, 7, '아직 탈출한 학생이 없습니다.');
-  cleared.sort((x, y) => x.total - y.total).forEach((p, ix) => {
+  cleared.sort((x, y) => x.total - y.total || x.hints - y.hints || x.clear - y.clear || x.cls - y.cls || x.num - y.num).forEach((p, ix) => { /* 총 소요 시간 → 힌트 횟수 → 먼저 탈출한 순 */
     const tr = document.createElement('tr'); rankCell(tr, ix, who(p)); cell(tr, fmt(p.total), 'ok'); cell(tr, fmt(p.play)); cell(tr, p.hints + ' (+' + fmt(p.pen || 0) + ')'); cell(tr, String(p.miss));
     cell(tr, p.away ? p.away + '회 · ' + fmt(p.awayMs / 1000) : '0', p.away ? 'warn' : '');
     const t = cell(tr, ''); if (p.adm) { const a = document.createElement('span'); a.className = 'tag warn'; a.textContent = '관리자 모드 사용'; t.appendChild(a); }
